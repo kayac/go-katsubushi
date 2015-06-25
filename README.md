@@ -1,6 +1,6 @@
-# idg
+# katsubushi
 
-idg(ID Generator) is stand alone application to generate unique ID.
+katsubushi(鰹節) is stand alone application to generate unique ID.
 
 ## Example
 
@@ -18,25 +18,25 @@ END
 ## Installation
 
 ```
-$ go get https://github.com/kayac/go-idg
-$ cd $GOPATH/github.com/kayac/go-idg
+$ go get https://github.com/kayac/go-katsubushi
+$ cd $GOPATH/github.com/kayac/go-katsubushi
 make
 ```
 
 ## Usage
 
 ```
-$ cd $GOPATH/github.com/kayac/go-idg/cmd/idg
-./idg -worker-id=1 -port=7238
+$ cd $GOPATH/github.com/kayac/go-katsubushi/cmd/katsubushi
+./katsubushi -worker-id=1 -port=7238
 ```
 
 ## Protocol
 
-idg use protocol compatible with memcached (text only, not binary).
+katsubushi use protocol compatible with memcached (text only, not binary).
 
 ## Algorithm
 
-idg use algorithm like snowflake to generate ID.
+katsubushi use algorithm like snowflake to generate ID.
 
 ## Commandline Options
 
@@ -85,7 +85,7 @@ Defalut value is `8080`.
 
 ## Licence
 
-[MIT](https://github.com/kayac/go-idg/blob/master/LICENSE)
+[MIT](https://github.com/kayac/go-katsubushi/blob/master/LICENSE)
 
 ## Author
 

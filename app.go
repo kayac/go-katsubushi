@@ -1,4 +1,4 @@
-package idg
+package katsubushi
 
 import (
 	"bufio"

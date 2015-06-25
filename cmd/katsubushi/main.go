@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/fukata/golang-stats-api-handler"
-	"github.com/kayac/go-idg"
 )
 
 func main() {
@@ -26,7 +25,7 @@ func main() {
 
 	flag.UintVar(&workerID, "worker-id", 0, "worker id. muset be unique.")
 	flag.IntVar(&port, "port", 11212, "port to listen.")
-	flag.IntVar(&idleTimeout, "idle-timeout", int(idg.DefaultIdleTimeout/time.Second), "connection will be closed if there are no packets over the seconds. 0 means infinite.")
+	flag.IntVar(&idleTimeout, "idle-timeout", int(katsubushi.DefaultIdleTimeout/time.Second), "connection will be closed if there are no packets over the seconds. 0 means infinite.")
 	flag.StringVar(&logLevel, "log-level", "info", "log level (panic, fatal, error, warn, info = Default, debug)")
 	flag.BoolVar(&enablePprof, "enable-pprof", false, "")
 	flag.BoolVar(&enableStats, "enable-stats", false, "")
@@ -38,7 +37,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	app, err := idg.NewApp(uint32(workerID), port)
+	app, err := katsubushi.NewApp(uint32(workerID), port)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

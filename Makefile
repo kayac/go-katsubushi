@@ -1,13 +1,13 @@
-all: idg
+all: katsubushi
 
-idg: cmd/idg/idg
+katsubushi: cmd/katsubushi/katsubushi
 
-cmd/idg/idg: *.go cmd/idg/*.go
-	cd cmd/idg && go build
+cmd/katsubushi/katsubushi: *.go cmd/katsubushi/*.go
+	cd cmd/katsubushi && go build
 
 .PHONEY: clean test
 clean:
-	cmd/idg/idg
+	cmd/katsubushi/katsubushi
 
 test:
 	go test

@@ -10,17 +10,17 @@ use Data::Dumper;
 use Parallel::Benchmark;
 use Cache::Memcached::Fast;
 
-my $idg_port = Test::TCP::empty_port();
-my $idg = Proc::Guard->new(
+my $katsubushi_port = Test::TCP::empty_port();
+my $katsubushi = Proc::Guard->new(
     command => [
-        "go", "run", "cmd/idg/main.go",
-        "-port=${idg_port}",
+        "go", "run", "cmd/katsubushi/main.go",
+        "-port=${katsubushi_port}",
         "-worker-id=1",
     ],
 );
-Test::TCP::wait_port($idg_port);
+Test::TCP::wait_port($katsubushi_port);
 
-my $client = Cache::Memcached::Fast->new({ servers => ["localhost:${idg_port}"] });
+my $client = Cache::Memcached::Fast->new({ servers => ["localhost:${katsubushi_port}"] });
 
 sub bench {
     my ($concurrency) = @_;
