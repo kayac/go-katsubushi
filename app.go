@@ -35,7 +35,7 @@ var (
 	InfiniteIdleTimeout = time.Duration(0)
 )
 
-// App : ID Generator本体。
+// App is main struct of the Application.
 type App struct {
 	Port     int
 	Listener net.Listener
@@ -43,7 +43,7 @@ type App struct {
 	gen   *Generator
 	ready bool
 
-	// 一定時間以上通信がなければタイムアウトする
+	// App will disconnect connection if there are no commands until idleTimeout.
 	idleTimeout time.Duration
 
 	startedAt        time.Time
@@ -54,9 +54,9 @@ type App struct {
 	getMisses        int64
 }
 
-// NewApp : 新しいAppオブジェクトを作って返す。
-// `port`の指定を行うが、この時点ではlistenしないので
-// ほかのプロセスがそのportを使っていたとしてもエラーにはならない。
+// NewApp create and returns new App instance.
+// Even if there is a process that uses the port,
+// it returns nil as error because this method only create instance but not listen the port.
 func NewApp(workerID uint32, port int) (*App, error) {
 	gen, err := NewGenerator(workerID)
 	if err != nil {
@@ -71,8 +71,8 @@ func NewApp(workerID uint32, port int) (*App, error) {
 	}, nil
 }
 
-// SetIdleTimeout : アイドル期間が指定時間以上継続した場合はコネクションを切断する。単位は秒。
-// 0を指定した場合はアイドルタイムアウトが無効になる。
+// SetIdleTimeout sets duration before disconnect caused by idle networking.
+// To disable idle timeout, set 0.
 func (app *App) SetIdleTimeout(timeout int) error {
 	if timeout < 0 {
 		return fmt.Errorf("timeout must be positive")
@@ -83,7 +83,8 @@ func (app *App) SetIdleTimeout(timeout int) error {
 	return nil
 }
 
-// SetLogLevel : ログ出力のレベルを指定する。
+// SetLogLevel sets log level.
+// Log level must be one of debug, info, warning, error, fatal and panic.
 func (app *App) SetLogLevel(str string) error {
 	level, err := log.ParseLevel(str)
 	if err != nil {
@@ -95,7 +96,7 @@ func (app *App) SetLogLevel(str string) error {
 	return nil
 }
 
-// Listen : 接続の待受を開始する。
+// Listen starts listen on App.Port.
 func (app *App) Listen() error {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", app.Port))
 	if err != nil {
@@ -120,7 +121,7 @@ func (app *App) Listen() error {
 	}
 }
 
-// IsReady : 接続を受け付けられる状態かどうかを返す。
+// IsReady returns if the app can accept connections.
 func (app *App) IsReady() bool {
 	return app.ready
 }
@@ -155,7 +156,7 @@ func (app *App) handleConn(conn net.Conn) {
 	}
 }
 
-// GetStats : returns MemdStats of app
+// GetStats returns MemdStats of app
 func (app *App) GetStats() MemdStats {
 	now := time.Now()
 	return MemdStats{
@@ -180,7 +181,7 @@ func (app *App) writeError(conn net.Conn) (err error) {
 	return
 }
 
-// NextID : generatorでIDを発番する
+// NextID generates new ID.
 func (app *App) NextID() (uint64, error) {
 	id, err := app.gen.NextID()
 	if err != nil {
@@ -191,7 +192,7 @@ func (app *App) NextID() (uint64, error) {
 	return id, err
 }
 
-// BytesToCmd : 1コマンド分のバイト列を`MemdCmd`に変換して返す。
+// BytesToCmd converts byte array to a MemdCmd and returns it.
 func (app *App) BytesToCmd(data []byte) (cmd MemdCmd, err error) {
 	if len(data) == 0 {
 		return nil, nil
@@ -230,18 +231,18 @@ func (app *App) extendDeadline(conn net.Conn) {
 	conn.SetDeadline(time.Now().Add(app.idleTimeout))
 }
 
-// MemdCmd : memdの1コマンドを表すinterface
+// MemdCmd defines a command.
 type MemdCmd interface {
 	Execute(*App, net.Conn) error
 }
 
-// MemdCmdGet : memdのGetコマンドを表す
+// MemdCmdGet defines Get command.
 type MemdCmdGet struct {
 	Name string
 	Key  string
 }
 
-// Execute : generates new ID by generator
+// Execute generates new ID.
 func (cmd *MemdCmdGet) Execute(app *App, conn net.Conn) error {
 	id, err := app.NextID()
 	if err != nil {
@@ -263,27 +264,27 @@ func (cmd *MemdCmdGet) Execute(app *App, conn net.Conn) error {
 	return nil
 }
 
-// MemdCmdQuit : QUIT command
+// MemdCmdQuit defines QUIT command.
 type MemdCmdQuit int
 
-// Execute : disconnect by server
+// Execute disconnect by server.
 func (cmd MemdCmdQuit) Execute(app *App, conn net.Conn) error {
 	return io.EOF
 }
 
-// MemdCmdStats : STATS command
+// MemdCmdStats defines STATS command.
 type MemdCmdStats int
 
-// Execute : writes STATS response
+// Execute writes STATS response.
 func (cmd MemdCmdStats) Execute(app *App, conn net.Conn) error {
 	_, err := app.GetStats().WriteTo(conn)
 	return err
 }
 
-// MemdCmdVersion : VERSION command
+// MemdCmdVersion defines VERSION command.
 type MemdCmdVersion int
 
-// Execute : writes Version number
+// Execute writes Version number.
 func (cmd MemdCmdVersion) Execute(app *App, conn net.Conn) error {
 	var b bytes.Buffer
 	b.Write(memdVersionHeader)
@@ -293,14 +294,14 @@ func (cmd MemdCmdVersion) Execute(app *App, conn net.Conn) error {
 	return err
 }
 
-// MemdValue : memdのレスポンス用の値を表す
+// MemdValue defines return value for client.
 type MemdValue struct {
 	Key   string
 	Flags int
 	Value string
 }
 
-// MemdStats : STATSコマンドレスポンス用の値を表す
+// MemdStats defines result of STATS command.
 type MemdStats struct {
 	Pid              int    `memd:"pid"`
 	Uptime           int64  `memd:"uptime"`
@@ -313,7 +314,8 @@ type MemdStats struct {
 	GetMisses        int64  `memd:"get_misses"`
 }
 
-// WriteTo : MemdValueの内容をmemcachedプロトコル互換のフォーマットでio.Writerに書き込む
+// WriteTo writes content of MemdValue to io.Writer.
+// Its format is compatible to memcached protocol.
 func (v MemdValue) WriteTo(w io.Writer) (int64, error) {
 	var b bytes.Buffer
 	b.Write(memdValHeader)
@@ -329,7 +331,7 @@ func (v MemdValue) WriteTo(w io.Writer) (int64, error) {
 	return b.WriteTo(w)
 }
 
-// WriteTo : STATSコマンドのレスポンスを io.Writer に書き込む
+// WriteTo writes result of STATS command to io.Writer.
 func (s MemdStats) WriteTo(w io.Writer) (int64, error) {
 	var b bytes.Buffer
 	statsValue := reflect.ValueOf(s)

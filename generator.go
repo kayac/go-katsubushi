@@ -65,7 +65,7 @@ func NewGenerator(workerID uint32) (*Generator, error) {
 		return nil, err
 	}
 
-	// 使用済みとして記録
+	// save as already used
 	workerIDPool = append(workerIDPool, workerID)
 
 	g := Generator{
@@ -82,7 +82,7 @@ func (g *Generator) NextID() (uint64, error) {
 
 	ts := g.timestamp()
 
-	// サーバー時刻巻き戻り対策
+	// for rewind of server clock
 	if ts < g.lastTimestamp {
 		return 0, fmt.Errorf("going to past!! your ntp service seems to be wrong")
 	}
