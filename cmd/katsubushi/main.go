@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fukata/golang-stats-api-handler"
+	"github.com/kayac/go-katsubushi"
 )
 
 func main() {
