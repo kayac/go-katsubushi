@@ -18,7 +18,7 @@ import (
 )
 
 func newTestApp(t *testing.T) *App {
-	app, _ := NewApp(getNextWorkerID(), 0)
+	app, _ := NewApp(getNextWorkerID())
 
 	if testing.Verbose() {
 		app.SetLogLevel("debug")
@@ -32,7 +32,7 @@ func newTestApp(t *testing.T) *App {
 func newTestAppAndListen(t *testing.T) *App {
 	app := newTestApp(t)
 
-	go app.Listen()
+	go app.ListenTCP("", 0)
 
 	for {
 		if app.IsReady() {
@@ -135,8 +135,8 @@ func TestAppIdleTimeout(t *testing.T) {
 }
 
 func BenchmarkApp(b *testing.B) {
-	app, _ := NewApp(getNextWorkerID(), 0)
-	go app.Listen()
+	app, _ := NewApp(getNextWorkerID())
+	go app.ListenTCP("", 0)
 
 	for {
 		if app.IsReady() {

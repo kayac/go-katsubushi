@@ -40,7 +40,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	app, err := katsubushi.NewApp(uint32(workerID), port)
+	app, err := katsubushi.NewApp(uint32(workerID))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -79,6 +79,6 @@ func main() {
 	if sockpath != "" {
 		fmt.Println(app.ListenSock(sockpath))
 	} else {
-		fmt.Println(app.Listen())
+		fmt.Println(app.ListenTCP("", port))
 	}
 }
