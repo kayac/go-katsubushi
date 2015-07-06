@@ -96,7 +96,7 @@ func (app *App) SetLogLevel(str string) error {
 	return nil
 }
 
-// Listen starts listen on App.Port.
+// Listen starts listen Unix Domain Socket on sockpath.
 func (app *App) ListenSock(sockpath string) error {
 	l, err := net.Listen("unix", sockpath)
 	if err != nil {
