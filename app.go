@@ -97,12 +97,26 @@ func (app *App) SetLogLevel(str string) error {
 }
 
 // Listen starts listen on App.Port.
+func (app *App) ListenSock(sockpath string) error {
+	l, err := net.Listen("unix", sockpath)
+	if err != nil {
+		return err
+	}
+
+	app.listen(l)
+}
+
+// Listen starts listen on App.Port.
 func (app *App) Listen() error {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", app.Port))
 	if err != nil {
 		return err
 	}
 
+	app.listen(l)
+}
+
+func (app *App) listen(l net.Listener) error {
 	log.Infof("Listening at %s", l.Addr().String())
 	log.Infof("Worker ID = %d", app.gen.WorkerID)
 

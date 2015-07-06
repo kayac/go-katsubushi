@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +33,23 @@ func newTestAppAndListen(t *testing.T) *App {
 	app := newTestApp(t)
 
 	go app.Listen()
+
+	for {
+		if app.IsReady() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return app
+}
+
+func newTestAppAndListenSock(t *testing.T) *App {
+	app := newTestApp(t)
+
+	tmpDir := os.TempDir()
+
+	go app.ListenSock(filepath.Join(tmpDir, "katsubushi.sock"))
 
 	for {
 		if app.IsReady() {

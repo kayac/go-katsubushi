@@ -22,10 +22,12 @@ func main() {
 		enablePprof bool
 		enableStats bool
 		debugPort   int
+		sockpath    string
 	)
 
 	flag.UintVar(&workerID, "worker-id", 0, "worker id. muset be unique.")
 	flag.IntVar(&port, "port", 11212, "port to listen.")
+	flag.StringVar(&sockpath, "sock", "", "unix domain socket to listen. ignore port option when set this.")
 	flag.IntVar(&idleTimeout, "idle-timeout", int(katsubushi.DefaultIdleTimeout/time.Second), "connection will be closed if there are no packets over the seconds. 0 means infinite.")
 	flag.StringVar(&logLevel, "log-level", "info", "log level (panic, fatal, error, warn, info = Default, debug)")
 	flag.BoolVar(&enablePprof, "enable-pprof", false, "")
@@ -74,5 +76,9 @@ func main() {
 		}()
 	}
 
-	fmt.Println(app.Listen())
+	if sockpath != "" {
+		fmt.Println(app.ListenSock(sockpath))
+	} else {
+		fmt.Println(app.Listen())
+	}
 }
