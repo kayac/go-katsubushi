@@ -103,7 +103,7 @@ func (app *App) ListenSock(sockpath string) error {
 		return err
 	}
 
-	app.listen(l)
+	return app.listen(l)
 }
 
 // Listen starts listen on App.Port.
@@ -113,7 +113,7 @@ func (app *App) Listen() error {
 		return err
 	}
 
-	app.listen(l)
+	return app.listen(l)
 }
 
 func (app *App) listen(l net.Listener) error {

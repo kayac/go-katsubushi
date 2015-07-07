@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -47,7 +48,10 @@ func newTestAppAndListen(t *testing.T) *App {
 func newTestAppAndListenSock(t *testing.T) *App {
 	app := newTestApp(t)
 
-	tmpDir := os.TempDir()
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "katsubushi")
+	if err != nil {
+		t.Fatal("Can't create temp directory:", err)
+	}
 
 	go app.ListenSock(filepath.Join(tmpDir, "katsubushi.sock"))
 
@@ -63,6 +67,32 @@ func newTestAppAndListenSock(t *testing.T) *App {
 
 func TestApp(t *testing.T) {
 	app := newTestAppAndListen(t)
+	mc := memcache.New(app.Listener.Addr().String())
+
+	item, err := mc.Get("hoge")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("key = %s", item.Key)
+	t.Logf("flags = %d", item.Flags)
+	t.Logf("id = %s", item.Value)
+
+	if k := item.Key; k != "hoge" {
+		t.Errorf("Unexpected key: %s", k)
+	}
+
+	if f := item.Flags; f != 0 {
+		t.Errorf("Unexpected flags: %d", f)
+	}
+
+	if _, err := strconv.ParseInt(string(item.Value), 10, 64); err != nil {
+		t.Errorf("Invalid id: %s", err)
+	}
+}
+
+func TestAppSock(t *testing.T) {
+	app := newTestAppAndListenSock(t)
 	mc := memcache.New(app.Listener.Addr().String())
 
 	item, err := mc.Get("hoge")
