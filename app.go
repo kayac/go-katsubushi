@@ -37,7 +37,6 @@ var (
 
 // App is main struct of the Application.
 type App struct {
-	Port     int
 	Listener net.Listener
 
 	gen   *Generator
@@ -55,16 +54,13 @@ type App struct {
 }
 
 // NewApp create and returns new App instance.
-// Even if there is a process that uses the port,
-// it returns nil as error because this method only create instance but not listen the port.
-func NewApp(workerID uint32, port int) (*App, error) {
+func NewApp(workerID uint32) (*App, error) {
 	gen, err := NewGenerator(workerID)
 	if err != nil {
 		return nil, err
 	}
 
 	return &App{
-		Port:        port,
 		idleTimeout: DefaultIdleTimeout,
 		gen:         gen,
 		startedAt:   time.Now(),
@@ -96,13 +92,28 @@ func (app *App) SetLogLevel(str string) error {
 	return nil
 }
 
-// Listen starts listen on App.Port.
-func (app *App) Listen() error {
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", app.Port))
+// ListenSock starts listen Unix Domain Socket on sockpath.
+func (app *App) ListenSock(sockpath string) error {
+	l, err := net.Listen("unix", sockpath)
 	if err != nil {
 		return err
 	}
 
+	return app.Listen(l)
+}
+
+// ListenTCP starts listen on host:port.
+func (app *App) ListenTCP(host string, port int) error {
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return err
+	}
+
+	return app.Listen(l)
+}
+
+// Listen starts listen.
+func (app *App) Listen(l net.Listener) error {
 	log.Infof("Listening at %s", l.Addr().String())
 	log.Infof("Worker ID = %d", app.gen.WorkerID)
 

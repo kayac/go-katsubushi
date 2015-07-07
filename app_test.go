@@ -5,7 +5,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,7 +19,7 @@ import (
 )
 
 func newTestApp(t *testing.T) *App {
-	app, _ := NewApp(getNextWorkerID(), 0)
+	app, _ := NewApp(getNextWorkerID())
 
 	if testing.Verbose() {
 		app.SetLogLevel("debug")
@@ -27,23 +30,34 @@ func newTestApp(t *testing.T) *App {
 	return app
 }
 
-func newTestAppAndListen(t *testing.T) *App {
+func newTestAppAndListenTCP(t *testing.T) *App {
 	app := newTestApp(t)
 
-	go app.Listen()
+	go app.ListenTCP("", 0)
 
-	for {
-		if app.IsReady() {
-			break
-		}
+	for !app.IsReady() {
 		time.Sleep(100 * time.Millisecond)
 	}
 
 	return app
 }
 
+func newTestAppAndListenSock(t *testing.T) (*App, string) {
+	app := newTestApp(t)
+
+	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
+
+	go app.ListenSock(filepath.Join(tmpDir, "katsubushi.sock"))
+
+	for !app.IsReady() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return app, tmpDir
+}
+
 func TestApp(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	mc := memcache.New(app.Listener.Addr().String())
 
 	item, err := mc.Get("hoge")
@@ -68,8 +82,35 @@ func TestApp(t *testing.T) {
 	}
 }
 
+func TestAppSock(t *testing.T) {
+	app, tmpDir := newTestAppAndListenSock(t)
+	mc := memcache.New(app.Listener.Addr().String())
+	defer os.RemoveAll(tmpDir)
+
+	item, err := mc.Get("hoge")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("key = %s", item.Key)
+	t.Logf("flags = %d", item.Flags)
+	t.Logf("id = %s", item.Value)
+
+	if k := item.Key; k != "hoge" {
+		t.Errorf("Unexpected key: %s", k)
+	}
+
+	if f := item.Flags; f != 0 {
+		t.Errorf("Unexpected flags: %d", f)
+	}
+
+	if _, err := strconv.ParseInt(string(item.Value), 10, 64); err != nil {
+		t.Errorf("Invalid id: %s", err)
+	}
+}
+
 func TestAppError(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	mc := memcache.New(app.Listener.Addr().String())
 
 	err := mc.Set(&memcache.Item{
@@ -87,7 +128,7 @@ func TestAppError(t *testing.T) {
 }
 
 func TestAppIdleTimeout(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	app.SetIdleTimeout(1)
 
 	mc := memcache.New(app.Listener.Addr().String())
@@ -116,13 +157,10 @@ func TestAppIdleTimeout(t *testing.T) {
 }
 
 func BenchmarkApp(b *testing.B) {
-	app, _ := NewApp(getNextWorkerID(), 0)
-	go app.Listen()
+	app, _ := NewApp(getNextWorkerID())
+	go app.ListenTCP("", 0)
 
-	for {
-		if app.IsReady() {
-			break
-		}
+	for !app.IsReady() {
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -132,6 +170,38 @@ func BenchmarkApp(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		client, err := newTestClient(app.Listener.Addr().String())
+		if err != nil {
+			b.Fatalf("Failed to connect to app: %s", err)
+		}
+		for pb.Next() {
+			resp, err := client.Command("GET hoge")
+			if err != nil {
+				b.Fatalf("Error on write: %s", err)
+			}
+			if errorPattern.Match(resp) {
+				b.Fatalf("Got ERROR")
+			}
+		}
+	})
+}
+
+func BenchmarkAppSock(b *testing.B) {
+	app, _ := NewApp(getNextWorkerID())
+	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
+	defer os.RemoveAll(tmpDir)
+
+	go app.ListenSock(filepath.Join(tmpDir, "katsubushi.sock"))
+
+	for !app.IsReady() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	errorPattern := regexp.MustCompile(`ERROR`)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		client, err := newTestClientSock(filepath.Join(tmpDir, "katsubushi.sock"))
 		if err != nil {
 			b.Fatalf("Failed to connect to app: %s", err)
 		}
@@ -205,8 +275,16 @@ func newTestClient(addr string) (*testClient, error) {
 	return &testClient{conn}, nil
 }
 
+func newTestClientSock(path string) (*testClient, error) {
+	conn, err := net.DialTimeout("unix", path, 1*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	return &testClient{conn}, nil
+}
+
 func TestAppVersion(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -218,7 +296,7 @@ func TestAppVersion(t *testing.T) {
 }
 
 func TestAppQuit(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -231,7 +309,7 @@ func TestAppQuit(t *testing.T) {
 }
 
 func TestAppStats(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatalf("Failed to connect to app: %s", err)
