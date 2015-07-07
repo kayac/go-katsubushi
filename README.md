@@ -28,6 +28,7 @@ make
 ```
 $ cd $GOPATH/github.com/kayac/go-katsubushi/cmd/katsubushi
 ./katsubushi -worker-id=1 -port=7238
+./katsubushi -worker-id=1 -sock=/path/to/unix-domain.sock
 ```
 
 ## Protocol
@@ -50,6 +51,11 @@ ID of the worker, must be unique in your service.
 Optional.
 Port number used for connection.
 Default value is `11212`.
+
+### -sock
+
+Optional.
+Path of unix doamin socket.
 
 ### -idle-timeout
 
