@@ -92,7 +92,7 @@ func (app *App) SetLogLevel(str string) error {
 	return nil
 }
 
-// Listen starts listen Unix Domain Socket on sockpath.
+// ListenSock starts listen Unix Domain Socket on sockpath.
 func (app *App) ListenSock(sockpath string) error {
 	l, err := net.Listen("unix", sockpath)
 	if err != nil {
@@ -102,7 +102,7 @@ func (app *App) ListenSock(sockpath string) error {
 	return app.Listen(l)
 }
 
-// Listen starts listen on App.Port.
+// ListenTCP starts listen on host:port.
 func (app *App) ListenTCP(host string, port int) error {
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
@@ -112,6 +112,7 @@ func (app *App) ListenTCP(host string, port int) error {
 	return app.Listen(l)
 }
 
+// Listen starts listen.
 func (app *App) Listen(l net.Listener) error {
 	log.Infof("Listening at %s", l.Addr().String())
 	log.Infof("Worker ID = %d", app.gen.WorkerID)
