@@ -30,7 +30,7 @@ func newTestApp(t *testing.T) *App {
 	return app
 }
 
-func newTestAppAndListen(t *testing.T) *App {
+func newTestAppAndListenTCP(t *testing.T) *App {
 	app := newTestApp(t)
 
 	go app.ListenTCP("", 0)
@@ -57,7 +57,7 @@ func newTestAppAndListenSock(t *testing.T) (*App, string) {
 }
 
 func TestApp(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	mc := memcache.New(app.Listener.Addr().String())
 
 	item, err := mc.Get("hoge")
@@ -110,7 +110,7 @@ func TestAppSock(t *testing.T) {
 }
 
 func TestAppError(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	mc := memcache.New(app.Listener.Addr().String())
 
 	err := mc.Set(&memcache.Item{
@@ -128,7 +128,7 @@ func TestAppError(t *testing.T) {
 }
 
 func TestAppIdleTimeout(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	app.SetIdleTimeout(1)
 
 	mc := memcache.New(app.Listener.Addr().String())
@@ -284,7 +284,7 @@ func newTestClientSock(path string) (*testClient, error) {
 }
 
 func TestAppVersion(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -296,7 +296,7 @@ func TestAppVersion(t *testing.T) {
 }
 
 func TestAppQuit(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -309,7 +309,7 @@ func TestAppQuit(t *testing.T) {
 }
 
 func TestAppStats(t *testing.T) {
-	app := newTestAppAndListen(t)
+	app := newTestAppAndListenTCP(t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatalf("Failed to connect to app: %s", err)
