@@ -33,7 +33,7 @@ func main() {
 	flag.StringVar(&logLevel, "log-level", "info", "log level (panic, fatal, error, warn, info = Default, debug)")
 	flag.BoolVar(&enablePprof, "enable-pprof", false, "")
 	flag.BoolVar(&enableStats, "enable-stats", false, "")
-	flag.BoolVar(&showVersion, "version", false, "")
+	flag.BoolVar(&showVersion, "version", false, "show version number")
 	flag.IntVar(&debugPort, "debug-port", 8080, "port to listen for debug")
 	flag.Parse()
 
