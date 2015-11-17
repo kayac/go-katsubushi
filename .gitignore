@@ -1,1 +1,3 @@
 cmd/katsubushi/katsubushi
+pkg/*
+!.gitkeep
