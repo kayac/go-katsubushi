@@ -209,18 +209,17 @@ func (app *App) BytesToCmd(data []byte) (cmd MemdCmd, err error) {
 		return nil, nil
 	}
 
-	fields := bytes.Fields(data)
-	switch name := string(bytes.ToUpper(fields[0])); name {
+	fields := strings.Fields(string(data))
+	switch name := strings.ToUpper(fields[0]); name {
 	case "GET", "GETS":
 		atomic.AddInt64(&(app.cmdGet), 1)
 		if len(fields) < 2 {
 			err = fmt.Errorf("GET command needs key as second parameter")
 			return
 		}
-
 		cmd = &MemdCmdGet{
 			Name: name,
-			Key:  string(fields[1]),
+			Keys: fields[1:],
 		}
 	case "QUIT":
 		cmd = MemdCmdQuit(0)
@@ -250,29 +249,31 @@ type MemdCmd interface {
 // MemdCmdGet defines Get command.
 type MemdCmdGet struct {
 	Name string
-	Key  string
+	Keys []string
 }
 
 // Execute generates new ID.
 func (cmd *MemdCmdGet) Execute(app *App, conn net.Conn) error {
-	id, err := app.NextID()
-	if err != nil {
-		log.Warn(err)
-		if err = app.writeError(conn); err != nil {
-			log.Warn("error on write error: %s", err)
-			return err
+	values := make([]string, len(cmd.Keys))
+	for i, _ := range cmd.Keys {
+		id, err := app.NextID()
+		if err != nil {
+			log.Warn(err)
+			if err = app.writeError(conn); err != nil {
+				log.Warn("error on write error: %s", err)
+				return err
+			}
+			return nil
 		}
-		return nil
+		log.Debugf("Generated ID: %d", id)
+		values[i] = strconv.FormatUint(id, 10)
 	}
-
-	log.Debugf("Generated ID: %d", id)
-
-	_, err = MemdValue{
-		Key:   cmd.Key,
-		Flags: 0,
-		Value: strconv.FormatUint(id, 10),
+	_, err := MemdValue{
+		Keys:   cmd.Keys,
+		Flags:  0,
+		Values: values,
 	}.WriteTo(conn)
-	return nil
+	return err
 }
 
 // MemdCmdQuit defines QUIT command.
@@ -307,9 +308,9 @@ func (cmd MemdCmdVersion) Execute(app *App, conn net.Conn) error {
 
 // MemdValue defines return value for client.
 type MemdValue struct {
-	Key   string
-	Flags int
-	Value string
+	Keys   []string
+	Flags  int
+	Values []string
 }
 
 // MemdStats defines result of STATS command.
@@ -329,15 +330,17 @@ type MemdStats struct {
 // Its format is compatible to memcached protocol.
 func (v MemdValue) WriteTo(w io.Writer) (int64, error) {
 	var b bytes.Buffer
-	b.Write(memdValHeader)
-	b.WriteString(v.Key)
-	b.Write(memdSpc)
-	b.WriteString(strconv.Itoa(v.Flags))
-	b.Write(memdSpc)
-	b.WriteString(strconv.Itoa(len(v.Value)))
-	b.Write(memdSep)
-	b.WriteString(v.Value)
-	b.Write(memdSep)
+	for i, key := range v.Keys {
+		b.Write(memdValHeader)
+		b.WriteString(key)
+		b.Write(memdSpc)
+		b.WriteString(strconv.Itoa(v.Flags))
+		b.Write(memdSpc)
+		b.WriteString(strconv.Itoa(len(v.Values[i])))
+		b.Write(memdSep)
+		b.WriteString(v.Values[i])
+		b.Write(memdSep)
+	}
 	b.Write(memdValFooter)
 	return b.WriteTo(w)
 }
