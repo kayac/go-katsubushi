@@ -82,6 +82,31 @@ func TestApp(t *testing.T) {
 	}
 }
 
+func TestAppMulti(t *testing.T) {
+	app := newTestAppAndListenTCP(t)
+	mc := memcache.New(app.Listener.Addr().String())
+	keys := []string{"foo", "bar", "baz"}
+	items, err := mc.GetMulti(keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, key := range keys {
+		item := items[key]
+		if k := item.Key; k != key {
+			t.Errorf("Unexpected key: %s", k)
+		}
+
+		if f := item.Flags; f != 0 {
+			t.Errorf("Unexpected flags: %d", f)
+		}
+
+		if _, err := strconv.ParseInt(string(item.Value), 10, 64); err != nil {
+			t.Errorf("Invalid id: %s", err)
+		}
+	}
+}
+
 func TestAppSock(t *testing.T) {
 	app, tmpDir := newTestAppAndListenSock(t)
 	mc := memcache.New(app.Listener.Addr().String())
