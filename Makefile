@@ -1,13 +1,17 @@
-GIT_VER := $(shell git describe --tags)
+GIT_VER := $(shell git describe --tags | sed -e 's/^v//')
 
 all: katsubushi
 
 katsubushi: cmd/katsubushi/katsubushi
 
 cmd/katsubushi/katsubushi: *.go cmd/katsubushi/*.go
-	cd cmd/katsubushi && go build
+	cd cmd/katsubushi && go build -ldflags "-X github.com/kayac/go-katsubushi.Version=${GIT_VER}"
 
-.PHONEY: clean test packages
+
+.PHONEY: clean test packages install
+install: cmd/katsubushi/katsubushi
+	install cmd/katsubushi/katsubushi ${GOPATH}/bin
+
 clean:
 	rm -rf cmd/katsubushi/katsubushi pkg/*
 

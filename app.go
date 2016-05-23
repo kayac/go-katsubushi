@@ -16,9 +16,9 @@ import (
 	log "gopkg.in/Sirupsen/logrus.v0"
 )
 
-const (
+var (
 	// Version number
-	Version = "1.0.0"
+	Version = "development"
 )
 
 var (
