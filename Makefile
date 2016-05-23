@@ -19,5 +19,5 @@ test:
 	go test
 
 packages:
-	cd cmd/katsubushi && gox -os="linux darwin" -arch="386 amd64" -output "../../pkg/${GIT_VER}-{{.OS}}-{{.Arch}}/{{.Dir}}"
+	cd cmd/katsubushi && gox -os="linux darwin" -arch="386 amd64" -output "../../pkg/${GIT_VER}-{{.OS}}-{{.Arch}}/{{.Dir}}" -ldflags "-X github.com/kayac/go-katsubushi.Version=${GIT_VER}"
 	cd pkg && find * -type dir -exec ../pack.sh {} katsubushi \;
