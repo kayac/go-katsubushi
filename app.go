@@ -206,7 +206,7 @@ func (app *App) NextID() (uint64, error) {
 // BytesToCmd converts byte array to a MemdCmd and returns it.
 func (app *App) BytesToCmd(data []byte) (cmd MemdCmd, err error) {
 	if len(data) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("No command")
 	}
 
 	fields := strings.Fields(string(data))

@@ -414,3 +414,18 @@ func parseStats(str string) (map[string]int64, error) {
 	}
 	return stats, nil
 }
+
+func TestAppEmptyCommand(t *testing.T) {
+	app := newTestAppAndListenTCP(t)
+	client, err := newTestClient(app.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_resp, err := client.Command("") // empty string
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(_resp), "ERROR") {
+		t.Errorf("expected ERROR got %s", _resp)
+	}
+}
