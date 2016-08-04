@@ -17,8 +17,10 @@ END
 
 ## Installation
 
+Download from [releases](https://github.com/kayac/go-katsubushi/releases) or build from source code.
+
 ```
-$ go get https://github.com/kayac/go-katsubushi
+$ go get github.com/kayac/go-katsubushi
 $ cd $GOPATH/github.com/kayac/go-katsubushi
 make
 ```
