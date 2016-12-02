@@ -25,6 +25,21 @@ $ cd $GOPATH/github.com/kayac/go-katsubushi
 make
 ```
 
+## Docker image
+
+https://hub.docker.com/r/katsubushi/katsubushi/
+
+```
+$ docker pull katsubushi/katsubushi
+$ docker run -p 11212:11212 katsubushi/katsubushi
+```
+
+If you want to specify `worker_id`, set by an environment variable.
+
+```
+$ docker run -e "worker_id=123" -p 11212:11212 katsubushi/katsubushi
+```
+
 ## Usage
 
 ```
