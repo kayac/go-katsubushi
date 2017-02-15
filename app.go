@@ -3,6 +3,7 @@ package katsubushi
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -93,27 +94,27 @@ func (app *App) SetLogLevel(str string) error {
 }
 
 // ListenSock starts listen Unix Domain Socket on sockpath.
-func (app *App) ListenSock(sockpath string) error {
+func (app *App) ListenSock(ctx context.Context, sockpath string) error {
 	l, err := net.Listen("unix", sockpath)
 	if err != nil {
 		return err
 	}
 
-	return app.Listen(l)
+	return app.Listen(ctx, l)
 }
 
 // ListenTCP starts listen on host:port.
-func (app *App) ListenTCP(host string, port int) error {
+func (app *App) ListenTCP(ctx context.Context, host string, port int) error {
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return err
 	}
 
-	return app.Listen(l)
+	return app.Listen(ctx, l)
 }
 
 // Listen starts listen.
-func (app *App) Listen(l net.Listener) error {
+func (app *App) Listen(ctx context.Context, l net.Listener) error {
 	log.Infof("Listening at %s", l.Addr().String())
 	log.Infof("Worker ID = %d", app.gen.WorkerID)
 
@@ -126,9 +127,13 @@ func (app *App) Listen(l net.Listener) error {
 			log.Warnf("Error on accept connection: %s", err)
 			continue
 		}
+		if ctx.Err() != nil {
+			conn.Close()
+			return nil
+		}
 		log.Debugf("Connected by %s", conn.RemoteAddr().String())
 
-		go app.handleConn(conn)
+		go app.handleConn(ctx, conn)
 	}
 }
 
@@ -137,7 +142,7 @@ func (app *App) IsReady() bool {
 	return app.ready
 }
 
-func (app *App) handleConn(conn net.Conn) {
+func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	atomic.AddInt64(&(app.totalConnections), 1)
 	atomic.AddInt64(&(app.currConnections), 1)
 	defer atomic.AddInt64(&(app.currConnections), -1)
@@ -147,8 +152,11 @@ func (app *App) handleConn(conn net.Conn) {
 
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
+		if err := ctx.Err(); err != nil {
+			// terminate
+			return
+		}
 		app.extendDeadline(conn)
-
 		cmd, err := app.BytesToCmd(scanner.Bytes())
 		if err != nil {
 			if err := app.writeError(conn); err != nil {

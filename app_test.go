@@ -3,6 +3,7 @@ package katsubushi
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -30,10 +31,10 @@ func newTestApp(t *testing.T) *App {
 	return app
 }
 
-func newTestAppAndListenTCP(t *testing.T) *App {
+func newTestAppAndListenTCP(ctx context.Context, t *testing.T) *App {
 	app := newTestApp(t)
 
-	go app.ListenTCP("", 0)
+	go app.ListenTCP(ctx, "", 0)
 
 	for !app.IsReady() {
 		time.Sleep(100 * time.Millisecond)
@@ -42,12 +43,12 @@ func newTestAppAndListenTCP(t *testing.T) *App {
 	return app
 }
 
-func newTestAppAndListenSock(t *testing.T) (*App, string) {
+func newTestAppAndListenSock(ctx context.Context, t *testing.T) (*App, string) {
 	app := newTestApp(t)
 
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
 
-	go app.ListenSock(filepath.Join(tmpDir, "katsubushi.sock"))
+	go app.ListenSock(ctx, filepath.Join(tmpDir, "katsubushi.sock"))
 
 	for !app.IsReady() {
 		time.Sleep(100 * time.Millisecond)
@@ -57,7 +58,8 @@ func newTestAppAndListenSock(t *testing.T) (*App, string) {
 }
 
 func TestApp(t *testing.T) {
-	app := newTestAppAndListenTCP(t)
+	ctx := context.Background()
+	app := newTestAppAndListenTCP(ctx, t)
 	mc := memcache.New(app.Listener.Addr().String())
 
 	item, err := mc.Get("hoge")
@@ -83,7 +85,8 @@ func TestApp(t *testing.T) {
 }
 
 func TestAppMulti(t *testing.T) {
-	app := newTestAppAndListenTCP(t)
+	ctx := context.Background()
+	app := newTestAppAndListenTCP(ctx, t)
 	mc := memcache.New(app.Listener.Addr().String())
 	keys := []string{"foo", "bar", "baz"}
 	items, err := mc.GetMulti(keys)
@@ -108,7 +111,8 @@ func TestAppMulti(t *testing.T) {
 }
 
 func TestAppSock(t *testing.T) {
-	app, tmpDir := newTestAppAndListenSock(t)
+	ctx := context.Background()
+	app, tmpDir := newTestAppAndListenSock(ctx, t)
 	mc := memcache.New(app.Listener.Addr().String())
 	defer os.RemoveAll(tmpDir)
 
@@ -135,7 +139,8 @@ func TestAppSock(t *testing.T) {
 }
 
 func TestAppError(t *testing.T) {
-	app := newTestAppAndListenTCP(t)
+	ctx := context.Background()
+	app := newTestAppAndListenTCP(ctx, t)
 	mc := memcache.New(app.Listener.Addr().String())
 
 	err := mc.Set(&memcache.Item{
@@ -153,7 +158,8 @@ func TestAppError(t *testing.T) {
 }
 
 func TestAppIdleTimeout(t *testing.T) {
-	app := newTestAppAndListenTCP(t)
+	ctx := context.Background()
+	app := newTestAppAndListenTCP(ctx, t)
 	app.SetIdleTimeout(1)
 
 	mc := memcache.New(app.Listener.Addr().String())
@@ -183,7 +189,7 @@ func TestAppIdleTimeout(t *testing.T) {
 
 func BenchmarkApp(b *testing.B) {
 	app, _ := NewApp(getNextWorkerID())
-	go app.ListenTCP("", 0)
+	go app.ListenTCP(context.Background(), "", 0)
 
 	for !app.IsReady() {
 		time.Sleep(100 * time.Millisecond)
@@ -215,7 +221,10 @@ func BenchmarkAppSock(b *testing.B) {
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
 	defer os.RemoveAll(tmpDir)
 
-	go app.ListenSock(filepath.Join(tmpDir, "katsubushi.sock"))
+	go app.ListenSock(
+		context.Background(),
+		filepath.Join(tmpDir, "katsubushi.sock"),
+	)
 
 	for !app.IsReady() {
 		time.Sleep(100 * time.Millisecond)
@@ -309,7 +318,8 @@ func newTestClientSock(path string) (*testClient, error) {
 }
 
 func TestAppVersion(t *testing.T) {
-	app := newTestAppAndListenTCP(t)
+	ctx := context.Background()
+	app := newTestAppAndListenTCP(ctx, t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -321,7 +331,8 @@ func TestAppVersion(t *testing.T) {
 }
 
 func TestAppQuit(t *testing.T) {
-	app := newTestAppAndListenTCP(t)
+	ctx := context.Background()
+	app := newTestAppAndListenTCP(ctx, t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -334,7 +345,8 @@ func TestAppQuit(t *testing.T) {
 }
 
 func TestAppStats(t *testing.T) {
-	app := newTestAppAndListenTCP(t)
+	ctx := context.Background()
+	app := newTestAppAndListenTCP(ctx, t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatalf("Failed to connect to app: %s", err)
@@ -416,7 +428,8 @@ func parseStats(str string) (map[string]int64, error) {
 }
 
 func TestAppEmptyCommand(t *testing.T) {
-	app := newTestAppAndListenTCP(t)
+	ctx := context.Background()
+	app := newTestAppAndListenTCP(ctx, t)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -427,5 +440,37 @@ func TestAppEmptyCommand(t *testing.T) {
 	}
 	if !strings.HasPrefix(string(_resp), "ERROR") {
 		t.Errorf("expected ERROR got %s", _resp)
+	}
+}
+
+func TestAppCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	app := newTestAppAndListenTCP(ctx, t)
+	{
+		client, err := newTestClient(app.Listener.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = client.Command("VERSION")
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancel()
+		// disconnect by peer after canceled
+		_, err = client.Command("VERSION")
+		if err != io.EOF {
+			t.Fatal(err)
+		}
+	}
+	{
+		// failed to conenct after canceled
+		client, err := newTestClient(app.Listener.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = client.Command("VERSION")
+		if err != io.EOF {
+			t.Fatal(err)
+		}
 	}
 }
