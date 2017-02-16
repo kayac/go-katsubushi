@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fujiwara/raus"
 	"github.com/fukata/golang-stats-api-handler"
 	"github.com/kayac/go-katsubushi"
 	"gopkg.in/Sirupsen/logrus.v0"
@@ -65,14 +66,24 @@ func main() {
 		return
 	}
 
-	if kc.workerID == 0 {
-		fmt.Println("please set -worker-id")
-		os.Exit(1)
-	}
-
+	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var wg sync.WaitGroup
+	if kc.workerID == 0 {
+		if redisURL == "" {
+			fmt.Println("please set -worker-id or -redis")
+			os.Exit(1)
+		}
+		log.Println("Waiting for worker-id automated assignment using", redisURL)
+		var err error
+		wg.Add(1)
+		kc.workerID, err = assignWorkerID(ctx, &wg, redisURL)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}
+
 	wg.Add(1)
 	go signalHandler(ctx, cancel, &wg)
 
@@ -173,4 +184,32 @@ func signalHandler(ctx context.Context, cancel context.CancelFunc, wg *sync.Wait
 		cancel()
 	case <-ctx.Done():
 	}
+}
+
+func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string) (uint, error) {
+	defer wg.Done()
+	raus.SetLogger(log)
+	r, err := raus.New(redisURL, 1, (1<<katsubushi.WorkerIDBits)-1)
+	if err != nil {
+		log.Println("Failed to assign worker-id", err)
+		return 0, err
+	}
+	id, ch, err := r.Get(ctx)
+	if err != nil {
+		return 0, err
+	}
+	log.Printf("Assigned worker-id: %d", id)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err, more := <-ch
+		if err != nil {
+			panic(err)
+		}
+		if !more {
+			// shutdown
+		}
+	}()
+	return uint(id), nil
 }
