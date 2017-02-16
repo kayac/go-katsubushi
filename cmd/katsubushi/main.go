@@ -95,43 +95,42 @@ func main() {
 	}
 
 	// main listener
-	app, err := newKatsubushi(kc)
+	fn, addr, err := newKatsubushiListenFunc(kc)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if kc.sockpath != "" {
-			err := app.ListenSock(ctx, kc.sockpath)
-			if err != nil {
-				log.Println(err)
-				os.Exit(1)
-			}
-		} else {
-			err := app.ListenTCP(ctx, fmt.Sprintf(":%d", kc.port))
-			if err != nil {
-				log.Println(err)
-				os.Exit(1)
-			}
-		}
-	}()
+	go mainListener(ctx, &wg, fn, addr)
+
 	wg.Wait()
+	log.Println("Shutdown completed")
 }
 
-func newKatsubushi(kc *katsubushiConfig) (*katsubushi.App, error) {
+func mainListener(ctx context.Context, wg *sync.WaitGroup, fn katsubushi.ListenFunc, addr string) {
+	defer wg.Done()
+	if err := fn(ctx, addr); err != nil {
+		log.Println("Listen failed", err)
+		os.Exit(1)
+	}
+}
+
+func newKatsubushiListenFunc(kc *katsubushiConfig) (katsubushi.ListenFunc, string, error) {
 	app, err := katsubushi.NewApp(uint32(kc.workerID))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if err := app.SetIdleTimeout(kc.idleTimeout); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if err := app.SetLogLevel(kc.logLevel); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return app, nil
+	if kc.sockpath != "" {
+		return app.ListenSock, kc.sockpath, nil
+	} else {
+		return app.ListenTCP, fmt.Sprintf(":%d", kc.port), nil
+	}
 }
 
 func profiler(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, pc *profConfig) {
