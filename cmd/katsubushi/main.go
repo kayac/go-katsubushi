@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	"golang.org/x/net/context"
@@ -66,10 +69,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go signalHandler(ctx, cancel, &wg)
+
 	// for profiling
 	if pc.enabled() {
 		log.Println("Enabling profiler")
-		go profiler(pc)
+		wg.Add(1)
+		go profiler(ctx, cancel, &wg, pc)
 	}
 
 	// main listener
@@ -78,12 +88,24 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	ctx := context.Background()
-	if kc.sockpath != "" {
-		fmt.Println(app.ListenSock(ctx, kc.sockpath))
-	} else {
-		fmt.Println(app.ListenTCP(ctx, fmt.Sprintf(":%d", kc.port)))
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if kc.sockpath != "" {
+			err := app.ListenSock(ctx, kc.sockpath)
+			if err != nil {
+				log.Println(err)
+				os.Exit(1)
+			}
+		} else {
+			err := app.ListenTCP(ctx, fmt.Sprintf(":%d", kc.port))
+			if err != nil {
+				log.Println(err)
+				os.Exit(1)
+			}
+		}
+	}()
+	wg.Wait()
 }
 
 func newKatsubushi(kc *katsubushiConfig) (*katsubushi.App, error) {
@@ -100,7 +122,9 @@ func newKatsubushi(kc *katsubushiConfig) (*katsubushi.App, error) {
 	return app, nil
 }
 
-func profiler(pc *profConfig) {
+func profiler(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, pc *profConfig) {
+	defer wg.Done()
+
 	mux := http.NewServeMux()
 	if pc.enablePprof {
 		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
@@ -120,8 +144,32 @@ func profiler(pc *profConfig) {
 		log.Println(err)
 		return
 	}
+
+	go func() {
+		<-ctx.Done()
+		ln.Close()
+	}()
+
 	if err := http.Serve(ln, mux); err != nil {
 		log.Println(err)
 		return
+	}
+}
+
+func signalHandler(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup) {
+	defer wg.Done()
+	trapSignals := []os.Signal{
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, trapSignals...)
+	select {
+	case sig := <-sigCh:
+		log.Printf("Got signal %s", sig)
+		cancel()
+	case <-ctx.Done():
 	}
 }
