@@ -464,12 +464,8 @@ func TestAppCancel(t *testing.T) {
 	}
 	{
 		// failed to conenct after canceled
-		client, err := newTestClient(app.Listener.Addr().String())
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = client.Command("VERSION")
-		if err != io.EOF {
+		_, err := newTestClient(app.Listener.Addr().String())
+		if err == nil {
 			t.Fatal(err)
 		}
 	}

@@ -121,20 +121,29 @@ func (app *App) Listen(ctx context.Context, l net.Listener) error {
 	app.Listener = l
 	app.ready = true
 
+	go func() {
+		<-ctx.Done()
+		if err := l.Close(); err != nil {
+			log.Warn(err)
+		}
+	}()
+
 	for {
 		conn, err := l.Accept()
 		if err != nil {
+			if ctx.Err() != nil {
+				// ctx was canceled
+				log.Info("Shutting down listener")
+				return nil
+			}
 			log.Warnf("Error on accept connection: %s", err)
-			continue
-		}
-		if ctx.Err() != nil {
-			conn.Close()
-			return nil
+			return err
 		}
 		log.Debugf("Connected by %s", conn.RemoteAddr().String())
 
 		go app.handleConn(ctx, conn)
 	}
+	return nil
 }
 
 // IsReady returns if the app can accept connections.
@@ -152,7 +161,7 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
-		if err := ctx.Err(); err != nil {
+		if ctx.Err() != nil {
 			// terminate
 			return
 		}
