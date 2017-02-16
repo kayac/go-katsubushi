@@ -104,8 +104,8 @@ func (app *App) ListenSock(ctx context.Context, sockpath string) error {
 }
 
 // ListenTCP starts listen on host:port.
-func (app *App) ListenTCP(ctx context.Context, host string, port int) error {
-	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+func (app *App) ListenTCP(ctx context.Context, addr string) error {
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}

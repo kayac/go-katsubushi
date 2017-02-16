@@ -34,7 +34,7 @@ func newTestApp(t *testing.T) *App {
 func newTestAppAndListenTCP(ctx context.Context, t *testing.T) *App {
 	app := newTestApp(t)
 
-	go app.ListenTCP(ctx, "", 0)
+	go app.ListenTCP(ctx, ":0")
 
 	for !app.IsReady() {
 		time.Sleep(100 * time.Millisecond)
@@ -189,7 +189,7 @@ func TestAppIdleTimeout(t *testing.T) {
 
 func BenchmarkApp(b *testing.B) {
 	app, _ := NewApp(getNextWorkerID())
-	go app.ListenTCP(context.Background(), "", 0)
+	go app.ListenTCP(context.Background(), ":0")
 
 	for !app.IsReady() {
 		time.Sleep(100 * time.Millisecond)
