@@ -457,10 +457,11 @@ func TestAppCancel(t *testing.T) {
 		}
 		cancel()
 		// disconnect by peer after canceled
-		_, err = client.Command("VERSION")
-		if err != io.EOF {
-			t.Fatal(err)
+		res, err := client.Command("VERSION")
+		if err == nil && len(res) > 0 { // response returned
+			t.Fatal(err, res)
 		}
+		t.Log(res, err)
 	}
 	{
 		// failed to conenct after canceled

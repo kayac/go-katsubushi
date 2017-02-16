@@ -133,13 +133,14 @@ func (app *App) Listen(ctx context.Context, l net.Listener) error {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			if ctx.Err() != nil {
-				// ctx was canceled
+			select {
+			case <-ctx.Done():
 				log.Info("Shutting down listener")
 				return nil
+			default:
+				log.Warnf("Error on accept connection: %s", err)
+				return err
 			}
-			log.Warnf("Error on accept connection: %s", err)
-			return err
 		}
 		log.Debugf("Connected by %s", conn.RemoteAddr().String())
 
@@ -159,14 +160,15 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	defer atomic.AddInt64(&(app.currConnections), -1)
 	defer conn.Close()
 
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+	}()
+
 	app.extendDeadline(conn)
 
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
-		if ctx.Err() != nil {
-			// terminate
-			return
-		}
 		app.extendDeadline(conn)
 		cmd, err := app.BytesToCmd(scanner.Bytes())
 		if err != nil {
