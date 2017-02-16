@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-var nextWorkerID uint32
+var nextWorkerID uint
 
-func getNextWorkerID() uint32 {
+func getNextWorkerID() uint {
 	nextWorkerID++
 	return nextWorkerID
 }
@@ -82,7 +82,7 @@ func TestGenerateAnID(t *testing.T) {
 
 	t.Log("restore worker ID")
 	{
-		wid := uint32(id & 0x3FF000 >> SequenceBits)
+		wid := uint(id & 0x3FF000 >> SequenceBits)
 		if wid != workerID {
 			t.Errorf("failed to restore worker ID: %d", wid)
 		}

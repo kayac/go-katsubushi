@@ -55,7 +55,7 @@ type App struct {
 }
 
 // NewApp create and returns new App instance.
-func NewApp(workerID uint32) (*App, error) {
+func NewApp(workerID uint) (*App, error) {
 	gen, err := NewGenerator(workerID)
 	if err != nil {
 		return nil, err

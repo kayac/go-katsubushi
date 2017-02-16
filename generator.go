@@ -24,7 +24,7 @@ const (
 	sequenseMask = -1 ^ (-1 << SequenceBits)
 )
 
-var workerIDPool = []uint32{}
+var workerIDPool = []uint{}
 var newGeneratorLock sync.Mutex
 
 // errors
@@ -33,7 +33,7 @@ var (
 	ErrDuplicatedWorkerID = errors.New("duplicated worker")
 )
 
-func checkWorkerID(id uint32) error {
+func checkWorkerID(id uint) error {
 	if workerIDMask < id {
 		return ErrInvalidWorkerID
 	}
@@ -49,14 +49,14 @@ func checkWorkerID(id uint32) error {
 
 // Generator is generater for unique ID.
 type Generator struct {
-	WorkerID      uint32
+	WorkerID      uint
 	lastTimestamp uint64
-	sequence      uint32
+	sequence      uint
 	lock          sync.Mutex
 }
 
 // NewGenerator returns new generator.
-func NewGenerator(workerID uint32) (*Generator, error) {
+func NewGenerator(workerID uint) (*Generator, error) {
 	// To keep worker ID be unique.
 	newGeneratorLock.Lock()
 	defer newGeneratorLock.Unlock()

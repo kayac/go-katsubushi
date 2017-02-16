@@ -116,7 +116,7 @@ func mainListener(ctx context.Context, wg *sync.WaitGroup, fn katsubushi.ListenF
 }
 
 func newKatsubushiListenFunc(kc *katsubushiConfig) (katsubushi.ListenFunc, string, error) {
-	app, err := katsubushi.NewApp(uint32(kc.workerID))
+	app, err := katsubushi.NewApp(kc.workerID)
 	if err != nil {
 		return nil, "", err
 	}
@@ -210,5 +210,5 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string) (u
 			// shutdown
 		}
 	}()
-	return uint(id), nil
+	return id, nil
 }
