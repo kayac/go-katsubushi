@@ -1,9 +1,9 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -13,10 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"github.com/fukata/golang-stats-api-handler"
 	"github.com/kayac/go-katsubushi"
+	"gopkg.in/Sirupsen/logrus.v0"
 )
 
 type profConfig struct {
@@ -36,6 +35,8 @@ type katsubushiConfig struct {
 	logLevel    string
 	sockpath    string
 }
+
+var log = logrus.New()
 
 func main() {
 	var (
