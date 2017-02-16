@@ -93,6 +93,8 @@ func (app *App) SetLogLevel(str string) error {
 	return nil
 }
 
+type ListenFunc func(context.Context, string) error
+
 // ListenSock starts listen Unix Domain Socket on sockpath.
 func (app *App) ListenSock(ctx context.Context, sockpath string) error {
 	l, err := net.Listen("unix", sockpath)
