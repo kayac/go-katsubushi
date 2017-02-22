@@ -52,16 +52,70 @@ $ cd $GOPATH/github.com/kayac/go-katsubushi/cmd/katsubushi
 
 katsubushi use protocol compatible with memcached (text only, not binary).
 
+### API
+
+#### GET, GETS
+
+```
+GET id1 id2
+VALUE id1 0 18
+283890203179880448
+VALUE id2 0 18
+283890203179880449
+END
+```
+
+VALUE(s) are unique IDs.
+
+#### STATS
+
+Returns a stats of katsubushi.
+
+```
+STAT pid 8018
+STAT uptime 17
+STAT time 1487754986
+STAT version 1.1.2
+STAT curr_connections 1
+STAT total_connections 2
+STAT cmd_get 2
+STAT get_hits 3
+STAT get_misses 0
+```
+
+#### VERSION
+
+Returns a version of katsubushi.
+
+```
+VERSION 1.1.2
+```
+
+#### QUIT
+
+Disconnect an established connection.
+
 ## Algorithm
 
 katsubushi use algorithm like snowflake to generate ID.
 
 ## Commandline Options
 
+`-worker-id` or `-redis` is required.
+
 ### -worker-id
 
-Required.
 ID of the worker, must be unique in your service.
+
+### -redis
+
+URL of Redis server. e.g. `redis://example.com:6379/0`
+
+`redis://{host}:{port}/{db}?ns={namespace}`
+
+This option is specified, katsubushi will assign an unique worker ID via Redis.
+
+All katsubushi process for your service must use a same Redis URL.
 
 ### -port
 
