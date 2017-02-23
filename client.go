@@ -2,7 +2,6 @@ package katsubushi
 
 import (
 	"strconv"
-	"time"
 
 	"github.com/Songmu/retry"
 	"github.com/bradfitz/gomemcache/memcache"
@@ -30,7 +29,7 @@ func (c *Client) Fetch() (uint64, error) {
 	errs := errors.New("no servers available")
 	for _, mc := range c.memcacheClients {
 		var item *memcache.Item
-		err := retry.Retry(2, 1*time.Millisecond, func() error {
+		err := retry.Retry(2, 0, func() error {
 			var _err error
 			item, _err = mc.Get("id")
 			return _err
@@ -60,7 +59,7 @@ func (c *Client) FetchMulti(n int) ([]uint64, error) {
 
 	for _, mc := range c.memcacheClients {
 		var items map[string]*memcache.Item
-		err := retry.Retry(2, 1*time.Millisecond, func() error {
+		err := retry.Retry(2, 0, func() error {
 			var _err error
 			items, _err = mc.GetMulti(keys)
 			return _err
