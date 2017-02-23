@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -40,8 +41,9 @@ var (
 type App struct {
 	Listener net.Listener
 
-	gen   *Generator
-	ready bool
+	gen     *Generator
+	readyCh chan interface{}
+	mu      sync.Mutex
 
 	// App will disconnect connection if there are no commands until idleTimeout.
 	idleTimeout time.Duration
@@ -65,12 +67,15 @@ func NewApp(workerID uint) (*App, error) {
 		idleTimeout: DefaultIdleTimeout,
 		gen:         gen,
 		startedAt:   time.Now(),
+		readyCh:     make(chan interface{}),
 	}, nil
 }
 
 // SetIdleTimeout sets duration before disconnect caused by idle networking.
 // To disable idle timeout, set 0.
 func (app *App) SetIdleTimeout(timeout int) error {
+	app.mu.Lock()
+	defer app.mu.Unlock()
 	if timeout < 0 {
 		return fmt.Errorf("timeout must be positive")
 	}
@@ -82,7 +87,7 @@ func (app *App) SetIdleTimeout(timeout int) error {
 
 // SetLogLevel sets log level.
 // Log level must be one of debug, info, warning, error, fatal and panic.
-func (app *App) SetLogLevel(str string) error {
+func SetLogLevel(str string) error {
 	level, err := log.ParseLevel(str)
 	if err != nil {
 		return err
@@ -121,7 +126,7 @@ func (app *App) Listen(ctx context.Context, l net.Listener) error {
 	log.Infof("Worker ID = %d", app.gen.WorkerID)
 
 	app.Listener = l
-	app.ready = true
+	close(app.readyCh)
 
 	go func() {
 		<-ctx.Done()
@@ -149,9 +154,9 @@ func (app *App) Listen(ctx context.Context, l net.Listener) error {
 	return nil
 }
 
-// IsReady returns if the app can accept connections.
-func (app *App) IsReady() bool {
-	return app.ready
+// Ready returns a channel which become readable when the app can accept connections.
+func (app *App) Ready() chan interface{} {
+	return app.readyCh
 }
 
 func (app *App) handleConn(ctx context.Context, conn net.Conn) {
@@ -255,6 +260,8 @@ func (app *App) BytesToCmd(data []byte) (cmd MemdCmd, err error) {
 }
 
 func (app *App) extendDeadline(conn net.Conn) {
+	app.mu.Lock()
+	defer app.mu.Unlock()
 	if app.idleTimeout == InfiniteIdleTimeout {
 		return
 	}
