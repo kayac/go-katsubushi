@@ -14,7 +14,7 @@ type Client struct {
 }
 
 // NewClient creates Client
-func NewClient(addrs []string) *Client {
+func NewClient(addrs ...string) *Client {
 	c := &Client{
 		memcacheClients: make([]*memcache.Client, 0, len(addrs)),
 	}

@@ -10,7 +10,7 @@ func TestClientFetch(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	app := newTestAppAndListenTCP(ctx, t)
-	c := NewClient([]string{app.Listener.Addr().String()})
+	c := NewClient(app.Listener.Addr().String())
 
 	id, err := c.Fetch()
 	if err != nil {
@@ -26,7 +26,7 @@ func TestClientMulti(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	app := newTestAppAndListenTCP(ctx, t)
-	c := NewClient([]string{app.Listener.Addr().String()})
+	c := NewClient(app.Listener.Addr().String())
 
 	ids, err := c.FetchMulti(3)
 	if err != nil {
@@ -49,7 +49,7 @@ func TestClientFetchRetry(t *testing.T) {
 	app := newTestAppAndListenTCP(ctx, t)
 	app.SetIdleTimeout(1)
 
-	c := NewClient([]string{app.Listener.Addr().String()})
+	c := NewClient(app.Listener.Addr().String())
 
 	for i := 0; i < 3; i++ {
 		id, err := c.Fetch()
@@ -73,10 +73,10 @@ func TestClientFetchBackup(t *testing.T) {
 	defer cancel2()
 	app2 := newTestAppAndListenTCP(ctx2, t)
 
-	c := NewClient([]string{
+	c := NewClient(
 		app1.Listener.Addr().String(),
 		app2.Listener.Addr().String(),
-	})
+	)
 
 	{
 		// fetched from app1
@@ -108,9 +108,9 @@ func TestClientFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	app := newTestAppAndListenTCP(ctx, t)
 
-	c := NewClient([]string{
+	c := NewClient(
 		app.Listener.Addr().String(),
-	})
+	)
 
 	cancel()
 
@@ -125,9 +125,9 @@ func TestClientFailMulti(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	app := newTestAppAndListenTCP(ctx, t)
 
-	c := NewClient([]string{
+	c := NewClient(
 		app.Listener.Addr().String(),
-	})
+	)
 
 	cancel()
 
@@ -145,10 +145,10 @@ func TestClientFailBackup(t *testing.T) {
 	ctx2, cancel2 := context.WithCancel(context.Background())
 	app2 := newTestAppAndListenTCP(ctx2, t)
 
-	c := NewClient([]string{
+	c := NewClient(
 		app1.Listener.Addr().String(),
 		app2.Listener.Addr().String(),
-	})
+	)
 
 	cancel1()
 	cancel2()
@@ -167,10 +167,10 @@ func TestClientFailBackupMulti(t *testing.T) {
 	ctx2, cancel2 := context.WithCancel(context.Background())
 	app2 := newTestAppAndListenTCP(ctx2, t)
 
-	c := NewClient([]string{
+	c := NewClient(
 		app1.Listener.Addr().String(),
 		app2.Listener.Addr().String(),
-	})
+	)
 
 	cancel1()
 	cancel2()
