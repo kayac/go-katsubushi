@@ -80,5 +80,5 @@ func (c *Client) FetchMulti(n int) ([]uint64, error) {
 			}
 		}
 	}
-	return ids, errs
+	return nil, errs
 }
