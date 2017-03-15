@@ -16,7 +16,7 @@ func TestConvertFixed(t *testing.T) {
 
 	t2 := katsubushi.ToTime(id)
 	if !t1.Equal(t2) {
-		t.Error("roudtrip failed")
+		t.Error("roundtrip failed")
 	}
 }
 
@@ -29,7 +29,7 @@ func TestConvertFixedSub(t *testing.T) {
 
 	t2 := katsubushi.ToTime(id)
 	if !t1.Equal(t2) {
-		t.Error("roudtrip failed")
+		t.Error("roundtrip failed")
 	}
 }
 
@@ -39,6 +39,6 @@ func TestConvertNow(t *testing.T) {
 	t2 := katsubushi.ToTime(id)
 	f := "2006-01-02T15:04:05.000"
 	if t1.Format(f) != t2.Format(f) {
-		t.Error("roudtrip failed", t1, t2)
+		t.Error("roundtrip failed", t1, t2)
 	}
 }
