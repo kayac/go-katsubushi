@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,15 +20,21 @@ import (
 	"github.com/bradfitz/gomemcache/memcache"
 )
 
-func newTestApp(t *testing.T) *App {
-	app, _ := NewApp(getNextWorkerID())
-
+func TestMain(m *testing.M) {
+	flag.Parse()
 	if testing.Verbose() {
-		app.SetLogLevel("debug")
+		SetLogLevel("debug")
 	} else {
-		app.SetLogLevel("panic")
+		SetLogLevel("panic")
 	}
+	os.Exit(m.Run())
+}
 
+func newTestApp(t *testing.T) *App {
+	app, err := NewApp(getNextWorkerID())
+	if err != nil {
+		t.Fatal(err)
+	}
 	return app
 }
 
@@ -35,10 +42,7 @@ func newTestAppAndListenTCP(ctx context.Context, t *testing.T) *App {
 	app := newTestApp(t)
 
 	go app.ListenTCP(ctx, ":0")
-
-	for !app.IsReady() {
-		time.Sleep(100 * time.Millisecond)
-	}
+	<-app.Ready()
 
 	return app
 }
@@ -49,10 +53,7 @@ func newTestAppAndListenSock(ctx context.Context, t *testing.T) (*App, string) {
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
 
 	go app.ListenSock(ctx, filepath.Join(tmpDir, "katsubushi.sock"))
-
-	for !app.IsReady() {
-		time.Sleep(100 * time.Millisecond)
-	}
+	<-app.Ready()
 
 	return app, tmpDir
 }
@@ -190,10 +191,7 @@ func TestAppIdleTimeout(t *testing.T) {
 func BenchmarkApp(b *testing.B) {
 	app, _ := NewApp(getNextWorkerID())
 	go app.ListenTCP(context.Background(), ":0")
-
-	for !app.IsReady() {
-		time.Sleep(100 * time.Millisecond)
-	}
+	<-app.Ready()
 
 	errorPattern := regexp.MustCompile(`ERROR`)
 
@@ -225,10 +223,7 @@ func BenchmarkAppSock(b *testing.B) {
 		context.Background(),
 		filepath.Join(tmpDir, "katsubushi.sock"),
 	)
-
-	for !app.IsReady() {
-		time.Sleep(100 * time.Millisecond)
-	}
+	<-app.Ready()
 
 	errorPattern := regexp.MustCompile(`ERROR`)
 

@@ -116,14 +116,15 @@ func mainListener(ctx context.Context, wg *sync.WaitGroup, fn katsubushi.ListenF
 }
 
 func newKatsubushiListenFunc(kc *katsubushiConfig) (katsubushi.ListenFunc, string, error) {
+	if err := katsubushi.SetLogLevel(kc.logLevel); err != nil {
+		return nil, "", err
+	}
+
 	app, err := katsubushi.NewApp(kc.workerID)
 	if err != nil {
 		return nil, "", err
 	}
 	if err := app.SetIdleTimeout(kc.idleTimeout); err != nil {
-		return nil, "", err
-	}
-	if err := app.SetLogLevel(kc.logLevel); err != nil {
 		return nil, "", err
 	}
 	if kc.sockpath != "" {
