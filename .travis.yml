@@ -7,5 +7,6 @@ go:
   - tip
 
 install:
+  - make get-deps
   - make test
   - make install
