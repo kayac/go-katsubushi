@@ -1,0 +1,11 @@
+sudo: false
+language: go
+
+go:
+  - 1.7
+  - 1.8
+  - tip
+
+install:
+  - make test
+  - make install
