@@ -90,7 +90,7 @@ func TestClientFetchBackup(t *testing.T) {
 	}
 
 	// shutdown app1
-	cancel1()
+	cancelAndWait(cancel1)
 
 	{
 		// fetched from app2
@@ -112,7 +112,7 @@ func TestClientFail(t *testing.T) {
 		app.Listener.Addr().String(),
 	)
 
-	cancel()
+	cancelAndWait(cancel)
 
 	_, err := c.Fetch()
 	if err == nil {
@@ -129,7 +129,7 @@ func TestClientFailMulti(t *testing.T) {
 		app.Listener.Addr().String(),
 	)
 
-	cancel()
+	cancelAndWait(cancel)
 
 	_, err := c.FetchMulti(3)
 	if err == nil {
@@ -150,8 +150,8 @@ func TestClientFailBackup(t *testing.T) {
 		app2.Listener.Addr().String(),
 	)
 
-	cancel1()
-	cancel2()
+	cancelAndWait(cancel1)
+	cancelAndWait(cancel2)
 
 	_, err := c.Fetch()
 	if err == nil {
@@ -172,12 +172,17 @@ func TestClientFailBackupMulti(t *testing.T) {
 		app2.Listener.Addr().String(),
 	)
 
-	cancel1()
-	cancel2()
+	cancelAndWait(cancel1)
+	cancelAndWait(cancel2)
 
 	_, err := c.FetchMulti(3)
 	if err == nil {
 		t.Error("must be failed")
 	}
 	t.Logf("error: %s", err)
+}
+
+func cancelAndWait(cancel context.CancelFunc) {
+	cancel()
+	time.Sleep(100 * time.Millisecond)
 }
