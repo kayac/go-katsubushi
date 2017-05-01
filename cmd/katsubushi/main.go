@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -43,6 +44,8 @@ func main() {
 	var (
 		showVersion bool
 		redisURL    string
+		minWorkerID uint
+		maxWorkerID uint
 	)
 	pc := &profConfig{}
 	kc := &katsubushiConfig{}
@@ -59,6 +62,8 @@ func main() {
 
 	flag.BoolVar(&showVersion, "version", false, "show version number")
 	flag.StringVar(&redisURL, "redis", "", "URL of Redis for automated worker id allocation")
+	flag.UintVar(&minWorkerID, "min-worker-id", 0, "minimum automated worker id")
+	flag.UintVar(&maxWorkerID, "max-worker-id", 0, "maximum automated worker id")
 	flag.Parse()
 
 	if showVersion {
@@ -74,10 +79,9 @@ func main() {
 			fmt.Println("please set -worker-id or -redis")
 			os.Exit(1)
 		}
-		log.Println("Waiting for worker-id automated assignment using", redisURL)
 		var err error
 		wg.Add(1)
-		kc.workerID, err = assignWorkerID(ctx, &wg, redisURL)
+		kc.workerID, err = assignWorkerID(ctx, &wg, redisURL, minWorkerID, maxWorkerID)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -186,10 +190,24 @@ func signalHandler(ctx context.Context, cancel context.CancelFunc, wg *sync.Wait
 	}
 }
 
-func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string) (uint, error) {
+func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, min, max uint) (uint, error) {
 	defer wg.Done()
 	raus.SetLogger(log)
-	r, err := raus.New(redisURL, 1, (1<<katsubushi.WorkerIDBits)-1)
+	defaultMax := uint((1 << katsubushi.WorkerIDBits) - 1)
+	if min == 0 {
+		min = 1
+	}
+	if max == 0 {
+		max = defaultMax
+	}
+	if min > max {
+		return 0, errors.New("max-worker-id must be larger than min-worker-id")
+	}
+	if max > defaultMax {
+		return 0, fmt.Errorf("max-worker-id must be smaller than %d", defaultMax)
+	}
+	log.Printf("Waiting for worker-id automated assignment (between %d and %d) with %s", min, max, redisURL)
+	r, err := raus.New(redisURL, min, max)
 	if err != nil {
 		log.Println("Failed to assign worker-id", err)
 		return 0, err

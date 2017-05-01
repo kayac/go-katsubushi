@@ -117,6 +117,12 @@ This option is specified, katsubushi will assign an unique worker ID via Redis.
 
 All katsubushi process for your service must use a same Redis URL.
 
+### -min-worker-id -max-worker-id
+
+These options work with `-redis`.
+
+If we use multi katsubushi clusters, worker-id range for each clusters must not be overlapped. katsubushi can specify the worker-id range by these options.
+
 ### -port
 
 Optional.

@@ -450,7 +450,7 @@ func TestAppCancel(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		cancel()
+		cancelAndWait(cancel)
 		// disconnect by peer after canceled
 		res, err := client.Command("VERSION")
 		if err == nil && len(res) > 0 { // response returned
