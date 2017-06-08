@@ -21,9 +21,9 @@ import (
 
 var (
 	// Version number
-	Version      = "development"
-	zaplogger, _ = zap.NewDevelopment()
-	log          = zaplogger.Sugar()
+	Version   = "development"
+	logger, _ = zap.NewDevelopment()
+	log       = logger.Sugar()
 )
 
 var (
@@ -114,13 +114,14 @@ func SetLogLevel(str string) error {
 	default:
 		return fmt.Errorf("invalid log level %s", str)
 	}
-	zaplogger, _ = conf.Build()
-	log = zaplogger.Sugar()
+	logger.Sync()
+	logger, _ = conf.Build()
+	log = logger.Sugar()
 	return nil
 }
 
 func StdLogger() *stdlog.Logger {
-	return zap.NewStdLog(zaplogger)
+	return zap.NewStdLog(logger)
 }
 
 type ListenFunc func(context.Context, string) error
@@ -147,6 +148,7 @@ func (app *App) ListenTCP(ctx context.Context, addr string) error {
 
 // Listen starts listen.
 func (app *App) Listen(ctx context.Context, l net.Listener) error {
+	defer logger.Sync()
 	log.Infof("Listening at %s", l.Addr().String())
 	log.Infof("Worker ID = %d", app.gen.WorkerID)
 
