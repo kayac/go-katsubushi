@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"github.com/fujiwara/raus"
 	"github.com/fukata/golang-stats-api-handler"
 	"github.com/kayac/go-katsubushi"
+	"github.com/namsral/flag"
 	"gopkg.in/Sirupsen/logrus.v0"
 )
 
