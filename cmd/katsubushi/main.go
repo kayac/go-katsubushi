@@ -194,7 +194,7 @@ func signalHandler(ctx context.Context, cancel context.CancelFunc, wg *sync.Wait
 
 func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, min, max uint) (uint, error) {
 	defer wg.Done()
-	raus.SetLogger(katsubushi.StdLogger())
+	raus.SetLogger(log)
 	defaultMax := uint((1 << katsubushi.WorkerIDBits) - 1)
 	if min == 0 {
 		min = 1
