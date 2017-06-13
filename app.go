@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	stdlog "log"
 	"net"
 	"os"
 	"reflect"
@@ -15,12 +16,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	log "gopkg.in/Sirupsen/logrus.v0"
+	"go.uber.org/zap"
 )
 
 var (
 	// Version number
-	Version = "development"
+	Version   = "development"
+	logger, _ = zap.NewDevelopment()
+	log       = logger.Sugar()
 )
 
 var (
@@ -88,14 +91,37 @@ func (app *App) SetIdleTimeout(timeout int) error {
 // SetLogLevel sets log level.
 // Log level must be one of debug, info, warning, error, fatal and panic.
 func SetLogLevel(str string) error {
-	level, err := log.ParseLevel(str)
-	if err != nil {
-		return err
+	conf := zap.Config{
+		Encoding:         "console",
+		EncoderConfig:    zap.NewDevelopmentEncoderConfig(),
+		OutputPaths:      []string{"stderr"},
+		ErrorOutputPaths: []string{"stderr"},
 	}
-
-	log.SetLevel(level)
-
+	switch str {
+	case "debug":
+		conf.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		conf.Development = true
+	case "info":
+		conf.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	case "warning":
+		conf.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
+	case "error":
+		conf.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+	case "fatal":
+		conf.Level = zap.NewAtomicLevelAt(zap.FatalLevel)
+	case "panic":
+		conf.Level = zap.NewAtomicLevelAt(zap.PanicLevel)
+	default:
+		return fmt.Errorf("invalid log level %s", str)
+	}
+	logger.Sync()
+	logger, _ = conf.Build()
+	log = logger.Sugar()
 	return nil
+}
+
+func StdLogger() *stdlog.Logger {
+	return zap.NewStdLog(logger)
 }
 
 type ListenFunc func(context.Context, string) error
@@ -122,6 +148,7 @@ func (app *App) ListenTCP(ctx context.Context, addr string) error {
 
 // Listen starts listen.
 func (app *App) Listen(ctx context.Context, l net.Listener) error {
+	defer logger.Sync()
 	log.Infof("Listening at %s", l.Addr().String())
 	log.Infof("Worker ID = %d", app.gen.WorkerID)
 

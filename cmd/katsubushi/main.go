@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	stdlog "log"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -18,7 +19,6 @@ import (
 	"github.com/fujiwara/raus"
 	"github.com/fukata/golang-stats-api-handler"
 	"github.com/kayac/go-katsubushi"
-	"gopkg.in/Sirupsen/logrus.v0"
 )
 
 type profConfig struct {
@@ -39,7 +39,7 @@ type katsubushiConfig struct {
 	sockpath    string
 }
 
-var log = logrus.New()
+var log *stdlog.Logger
 
 func main() {
 	var (
@@ -73,8 +73,17 @@ func main() {
 		return
 	}
 
+	if err := katsubushi.SetLogLevel(kc.logLevel); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	log = katsubushi.StdLogger()
+
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
+
+	wg.Add(1)
+	go signalHandler(ctx, cancel, &wg)
 
 	if kc.workerID == 0 {
 		if redisURL == "" {
@@ -85,13 +94,10 @@ func main() {
 		wg.Add(1)
 		kc.workerID, err = assignWorkerID(ctx, &wg, redisURL, minWorkerID, maxWorkerID)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			os.Exit(1)
 		}
 	}
-
-	wg.Add(1)
-	go signalHandler(ctx, cancel, &wg)
 
 	// for profiling
 	if pc.enabled() {
@@ -122,10 +128,6 @@ func mainListener(ctx context.Context, wg *sync.WaitGroup, fn katsubushi.ListenF
 }
 
 func newKatsubushiListenFunc(kc *katsubushiConfig) (katsubushi.ListenFunc, string, error) {
-	if err := katsubushi.SetLogLevel(kc.logLevel); err != nil {
-		return nil, "", err
-	}
-
 	app, err := katsubushi.NewApp(kc.workerID)
 	if err != nil {
 		return nil, "", err
