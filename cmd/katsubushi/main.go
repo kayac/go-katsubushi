@@ -10,6 +10,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -64,6 +65,7 @@ func main() {
 	flag.StringVar(&redisURL, "redis", "", "URL of Redis for automated worker id allocation")
 	flag.UintVar(&minWorkerID, "min-worker-id", 0, "minimum automated worker id")
 	flag.UintVar(&maxWorkerID, "max-worker-id", 0, "maximum automated worker id")
+	flag.VisitAll(envToFlag)
 	flag.Parse()
 
 	if showVersion {
@@ -230,4 +232,17 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, mi
 		}
 	}()
 	return id, nil
+}
+
+func envToFlag(f *flag.Flag) {
+	names := []string{
+		strings.ToUpper(strings.Replace(f.Name, "-", "_", -1)),
+		strings.ToLower(strings.Replace(f.Name, "-", "_", -1)),
+	}
+	for _, name := range names {
+		if s := os.Getenv(name); s != "" {
+			f.Value.Set(s)
+			break
+		}
+	}
 }
