@@ -2,24 +2,20 @@ package katsubushi
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 )
 
 var nowFunc = time.Now
 
-// TimestampSince is offset from epoch time origin as millseconds.
-// It indicates 2015-01-01 00:00:00 UTC
-const TimestampSince = uint64(1420070400 * 1000)
+// Epoch is katsubushi epoch time (2015-01-01 00:00:00 UTC)
+// Generated ID includes elapsed time from Epoch.
+var Epoch = time.Date(2015, 1, 1, 0, 0, 0, 0, time.UTC)
 
 // for bitshift
 const (
 	WorkerIDBits = 10
 	SequenceBits = 12
-)
-
-const (
 	workerIDMask = -1 ^ (-1 << WorkerIDBits)
 	sequenseMask = -1 ^ (-1 << SequenceBits)
 )
@@ -84,30 +80,26 @@ func (g *Generator) NextID() (uint64, error) {
 
 	// for rewind of server clock
 	if ts < g.lastTimestamp {
-		return 0, fmt.Errorf("going to past!! your ntp service seems to be wrong")
+		return 0, errors.New("system clock was rollbacked")
 	}
 
 	if ts == g.lastTimestamp {
 		g.sequence = (g.sequence + 1) & sequenseMask
-
 		if g.sequence == 0 {
+			// overflow
 			ts = g.waitUntilNextTick(ts)
 		}
 	} else {
 		g.sequence = 0
 	}
-
 	g.lastTimestamp = ts
 
-	return g.currentID(), nil
-}
-
-func (g *Generator) currentID() uint64 {
-	return (g.lastTimestamp << (WorkerIDBits + SequenceBits)) | (uint64(g.WorkerID) << SequenceBits) | (uint64(g.sequence))
+	return (g.lastTimestamp << (WorkerIDBits + SequenceBits)) | (uint64(g.WorkerID) << SequenceBits) | (uint64(g.sequence)), nil
 }
 
 func (g *Generator) timestamp() uint64 {
-	return uint64(nowFunc().UnixNano())/uint64(time.Millisecond) - TimestampSince
+	d := nowFunc().Sub(Epoch)
+	return uint64(d.Nanoseconds()) / uint64(time.Millisecond)
 }
 
 func (g *Generator) waitUntilNextTick(ts uint64) uint64 {

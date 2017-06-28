@@ -3,13 +3,13 @@ package katsubushi
 import "time"
 
 func ToTime(id uint64) time.Time {
-	ts := id>>(WorkerIDBits+SequenceBits) + TimestampSince
-	sec := ts / 1000
-	msec := ts % 1000
-	return time.Unix(int64(sec), int64(msec)*int64(time.Millisecond))
+	ts := id >> (WorkerIDBits + SequenceBits)
+	d := time.Duration(int64(ts) * int64(time.Millisecond))
+	return Epoch.Add(d)
 }
 
 func ToID(t time.Time) uint64 {
-	ts := uint64(t.UnixNano() / int64(time.Millisecond))
-	return (ts - TimestampSince) << (WorkerIDBits + SequenceBits)
+	d := t.Sub(Epoch)
+	ts := uint64(d.Nanoseconds()) / uint64(time.Millisecond)
+	return ts << (WorkerIDBits + SequenceBits)
 }

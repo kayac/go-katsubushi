@@ -71,7 +71,8 @@ func TestGenerateAnID(t *testing.T) {
 
 	t.Log("restore timestamp")
 	{
-		ts := (id & 0x7FFFFFFFFFC00000 >> (WorkerIDBits + SequenceBits)) + TimestampSince
+		timestampSince := uint64(Epoch.UnixNano()) / uint64(time.Millisecond)
+		ts := (id & 0x7FFFFFFFFFC00000 >> (WorkerIDBits + SequenceBits)) + timestampSince
 		nowMsec := uint64(now.UnixNano()) / uint64(time.Millisecond)
 
 		// To avoid failure would cause by timestamp on execution.
