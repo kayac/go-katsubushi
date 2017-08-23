@@ -41,6 +41,10 @@ type katsubushiConfig struct {
 
 var log *stdlog.Logger
 
+func init() {
+	raus.LockExpires = 600 * time.Second
+}
+
 func main() {
 	var (
 		showVersion bool
