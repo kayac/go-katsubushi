@@ -34,7 +34,7 @@ func TestConvertFixedSub(t *testing.T) {
 }
 
 func TestConvertNow(t *testing.T) {
-	t1 := time.Now()
+	t1 := time.Now().In(time.UTC)
 	id := katsubushi.ToID(t1)
 	t2 := katsubushi.ToTime(id)
 	f := "2006-01-02T15:04:05.000"
