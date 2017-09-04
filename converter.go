@@ -13,3 +13,9 @@ func ToID(t time.Time) uint64 {
 	ts := uint64(d.Nanoseconds()) / uint64(time.Millisecond)
 	return ts << (WorkerIDBits + SequenceBits)
 }
+
+func Dump(id uint64) (t time.Time, workerID uint64, sequense uint64) {
+	workerID = (id & (workerIDMask << SequenceBits)) >> SequenceBits
+	sequense = id & sequenseMask
+	return ToTime(id), workerID, sequense
+}
