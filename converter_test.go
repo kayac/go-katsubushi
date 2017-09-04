@@ -42,3 +42,37 @@ func TestConvertNow(t *testing.T) {
 		t.Error("roundtrip failed", t1, t2)
 	}
 }
+
+func TestDump(t *testing.T) {
+	testCases := []struct {
+		id  uint64
+		ts  time.Time
+		wid uint64
+		seq uint64
+	}{
+		{
+			354101311794212865,
+			time.Date(2017, 9, 4, 3, 12, 11, 615000000, time.UTC),
+			999,
+			1,
+		},
+		{
+			354103658909954052,
+			time.Date(2017, 9, 4, 3, 21, 31, 211000000, time.UTC),
+			999,
+			4,
+		},
+	}
+	for _, tc := range testCases {
+		ts, wid, seq := katsubushi.Dump(tc.id)
+		if ts != tc.ts {
+			t.Errorf("%d timestamp is not expected. got %s expected %s", tc.id, ts, tc.ts)
+		}
+		if wid != tc.wid {
+			t.Errorf("%d workerID is not expected. got %d expected %d", tc.id, wid, tc.wid)
+		}
+		if seq != tc.seq {
+			t.Errorf("%d sequence is not expected. got %d expected %d", tc.id, seq, tc.seq)
+		}
+	}
+}
