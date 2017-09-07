@@ -49,6 +49,8 @@ type Generator struct {
 	lastTimestamp uint64
 	sequence      uint
 	lock          sync.Mutex
+	startedAt     time.Time
+	offset        time.Duration
 }
 
 // NewGenerator returns new generator.
@@ -64,10 +66,12 @@ func NewGenerator(workerID uint) (*Generator, error) {
 	// save as already used
 	workerIDPool = append(workerIDPool, workerID)
 
+	now := nowFunc()
 	g := Generator{
-		WorkerID: workerID,
+		WorkerID:  workerID,
+		startedAt: now,
+		offset:    now.Sub(Epoch),
 	}
-
 	return &g, nil
 }
 
@@ -98,7 +102,7 @@ func (g *Generator) NextID() (uint64, error) {
 }
 
 func (g *Generator) timestamp() uint64 {
-	d := nowFunc().Sub(Epoch)
+	d := nowFunc().Sub(g.startedAt) + g.offset
 	return uint64(d.Nanoseconds()) / uint64(time.Millisecond)
 }
 
