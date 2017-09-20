@@ -4,7 +4,48 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/bradfitz/gomemcache/memcache"
 )
+
+func BenchmarkClientFetch(b *testing.B) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	app := newTestAppAndListenTCP(ctx, b)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		c := NewClient(app.Listener.Addr().String())
+		for pb.Next() {
+			id, err := c.Fetch()
+			if err != nil {
+				b.Fatal(err)
+			}
+			if id == 0 {
+				b.Error("could not fetch id > 0")
+			}
+		}
+	})
+}
+
+func BenchmarkGoMemcacheFetch(b *testing.B) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	app := newTestAppAndListenTCP(ctx, b)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		mc := memcache.New(app.Listener.Addr().String())
+		for pb.Next() {
+			_, err := mc.Get("id")
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
 
 func TestClientFetch(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
