@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -53,7 +54,7 @@ func (c *memcacheClient) Get(key string) (uint64, error) {
 	c.conn.SetDeadline(time.Now().Add(c.timeout))
 	c.rw.Write(memdGets)
 	c.rw.Write(memdSpc)
-	c.rw.Write([]byte(key))
+	io.WriteString(c.rw, key)
 	c.rw.Write(memdSep)
 	if err := c.rw.Flush(); err != nil {
 		c.close()
@@ -89,7 +90,7 @@ func (c *memcacheClient) GetMulti(keys []string) ([]uint64, error) {
 	c.rw.Write(memdGets)
 	for _, key := range keys {
 		c.rw.Write(memdSpc)
-		c.rw.Write([]byte(key))
+		io.WriteString(c.rw, key)
 	}
 	c.rw.Write(memdSep)
 	if err := c.rw.Flush(); err != nil {
