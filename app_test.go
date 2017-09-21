@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func newTestApp(t *testing.T) *App {
+func newTestApp(t testing.TB) *App {
 	app, err := NewApp(getNextWorkerID())
 	if err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func newTestApp(t *testing.T) *App {
 	return app
 }
 
-func newTestAppAndListenTCP(ctx context.Context, t *testing.T) *App {
+func newTestAppAndListenTCP(ctx context.Context, t testing.TB) *App {
 	app := newTestApp(t)
 
 	go app.ListenTCP(ctx, ":0")
@@ -47,7 +47,7 @@ func newTestAppAndListenTCP(ctx context.Context, t *testing.T) *App {
 	return app
 }
 
-func newTestAppAndListenSock(ctx context.Context, t *testing.T) (*App, string) {
+func newTestAppAndListenSock(ctx context.Context, t testing.TB) (*App, string) {
 	app := newTestApp(t)
 
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")

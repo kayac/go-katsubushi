@@ -2,7 +2,6 @@ package katsubushi
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -203,6 +202,7 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	app.extendDeadline(conn)
 
 	scanner := bufio.NewScanner(conn)
+	w := bufio.NewWriter(conn)
 	for scanner.Scan() {
 		app.extendDeadline(conn)
 		cmd, err := app.BytesToCmd(scanner.Bytes())
@@ -213,11 +213,14 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 			}
 			continue
 		}
-		err = cmd.Execute(app, conn)
-		if err == io.EOF {
+		if err := cmd.Execute(app, w); err != nil {
+			log.Warn("error on execute cmd %s: %s", cmd, err)
 			return
-		} else if err != nil {
-			log.Warn("error on write to conn: %s", err)
+		}
+		if err := w.Flush(); err != nil {
+			if err != io.EOF {
+				log.Warn("error on cmd %s write to conn: %s", cmd, err)
+			}
 			return
 		}
 	}
@@ -239,7 +242,7 @@ func (app *App) GetStats() MemdStats {
 	}
 }
 
-func (app *App) writeError(conn net.Conn) (err error) {
+func (app *App) writeError(conn io.Writer) (err error) {
 	_, err = conn.Write(respError)
 	if err != nil {
 		log.Warn(err)
@@ -301,7 +304,7 @@ func (app *App) extendDeadline(conn net.Conn) {
 
 // MemdCmd defines a command.
 type MemdCmd interface {
-	Execute(*App, net.Conn) error
+	Execute(*App, io.Writer) error
 }
 
 // MemdCmdGet defines Get command.
@@ -311,7 +314,7 @@ type MemdCmdGet struct {
 }
 
 // Execute generates new ID.
-func (cmd *MemdCmdGet) Execute(app *App, conn net.Conn) error {
+func (cmd *MemdCmdGet) Execute(app *App, conn io.Writer) error {
 	values := make([]string, len(cmd.Keys))
 	for i, _ := range cmd.Keys {
 		id, err := app.NextID()
@@ -326,19 +329,18 @@ func (cmd *MemdCmdGet) Execute(app *App, conn net.Conn) error {
 		log.Debugf("Generated ID: %d", id)
 		values[i] = strconv.FormatUint(id, 10)
 	}
-	_, err := MemdValue{
+	return MemdValue{
 		Keys:   cmd.Keys,
 		Flags:  0,
 		Values: values,
 	}.WriteTo(conn)
-	return err
 }
 
 // MemdCmdQuit defines QUIT command.
 type MemdCmdQuit int
 
 // Execute disconnect by server.
-func (cmd MemdCmdQuit) Execute(app *App, conn net.Conn) error {
+func (cmd MemdCmdQuit) Execute(app *App, conn io.Writer) error {
 	return io.EOF
 }
 
@@ -346,21 +348,18 @@ func (cmd MemdCmdQuit) Execute(app *App, conn net.Conn) error {
 type MemdCmdStats int
 
 // Execute writes STATS response.
-func (cmd MemdCmdStats) Execute(app *App, conn net.Conn) error {
-	_, err := app.GetStats().WriteTo(conn)
-	return err
+func (cmd MemdCmdStats) Execute(app *App, conn io.Writer) error {
+	return app.GetStats().WriteTo(conn)
 }
 
 // MemdCmdVersion defines VERSION command.
 type MemdCmdVersion int
 
 // Execute writes Version number.
-func (cmd MemdCmdVersion) Execute(app *App, conn net.Conn) error {
-	var b bytes.Buffer
-	b.Write(memdVersionHeader)
-	b.WriteString(Version)
-	b.Write(memdSep)
-	_, err := b.WriteTo(conn)
+func (cmd MemdCmdVersion) Execute(app *App, w io.Writer) error {
+	w.Write(memdVersionHeader)
+	io.WriteString(w, Version)
+	_, err := w.Write(memdSep)
 	return err
 }
 
@@ -386,48 +385,46 @@ type MemdStats struct {
 
 // WriteTo writes content of MemdValue to io.Writer.
 // Its format is compatible to memcached protocol.
-func (v MemdValue) WriteTo(w io.Writer) (int64, error) {
-	var b bytes.Buffer
+func (v MemdValue) WriteTo(w io.Writer) error {
 	for i, key := range v.Keys {
-		b.Write(memdValHeader)
-		b.WriteString(key)
-		b.Write(memdSpc)
-		b.WriteString(strconv.Itoa(v.Flags))
-		b.Write(memdSpc)
-		b.WriteString(strconv.Itoa(len(v.Values[i])))
-		b.Write(memdSep)
-		b.WriteString(v.Values[i])
-		b.Write(memdSep)
+		w.Write(memdValHeader)
+		io.WriteString(w, key)
+		w.Write(memdSpc)
+		io.WriteString(w, strconv.Itoa(v.Flags))
+		w.Write(memdSpc)
+		io.WriteString(w, strconv.Itoa(len(v.Values[i])))
+		w.Write(memdSep)
+		io.WriteString(w, v.Values[i])
+		w.Write(memdSep)
 	}
-	b.Write(memdValFooter)
-	return b.WriteTo(w)
+	_, err := w.Write(memdValFooter)
+	return err
 }
 
 // WriteTo writes result of STATS command to io.Writer.
-func (s MemdStats) WriteTo(w io.Writer) (int64, error) {
-	var b bytes.Buffer
+func (s MemdStats) WriteTo(w io.Writer) error {
 	statsValue := reflect.ValueOf(s)
 	statsType := reflect.TypeOf(s)
 	for i := 0; i < statsType.NumField(); i++ {
-		b.Write(memdStatHeader)
+		w.Write(memdStatHeader)
 		field := statsType.Field(i)
 		if tag := field.Tag.Get("memd"); tag != "" {
-			b.WriteString(tag)
+			io.WriteString(w, tag)
 		} else {
-			b.WriteString(strings.ToUpper(field.Name))
+			io.WriteString(w, strings.ToUpper(field.Name))
 		}
-		b.Write(memdSpc)
+		w.Write(memdSpc)
 		v := statsValue.FieldByIndex(field.Index).Interface()
 		switch _v := v.(type) {
 		case int:
-			b.WriteString(strconv.Itoa(_v))
+			io.WriteString(w, strconv.Itoa(_v))
 		case int64:
-			b.WriteString(strconv.FormatInt(int64(_v), 10))
+			io.WriteString(w, strconv.FormatInt(int64(_v), 10))
 		case string:
-			b.WriteString(string(_v))
+			io.WriteString(w, string(_v))
 		}
-		b.Write(memdSep)
+		w.Write(memdSep)
 	}
-	b.Write(memdValFooter)
-	return b.WriteTo(w)
+	_, err := w.Write(memdValFooter)
+	return err
 }

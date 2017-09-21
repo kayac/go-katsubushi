@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -17,6 +18,7 @@ type memcacheClient struct {
 	conn    net.Conn
 	timeout time.Duration
 	mu      sync.Mutex
+	rw      *bufio.ReadWriter
 }
 
 func newMemcacheClient(addr string) *memcacheClient {
@@ -29,6 +31,7 @@ func newMemcacheClient(addr string) *memcacheClient {
 func (c *memcacheClient) connect() error {
 	var err error
 	c.conn, err = net.DialTimeout("tcp", c.addr, c.timeout)
+	c.rw = bufio.NewReadWriter(bufio.NewReader(c.conn), bufio.NewWriter(c.conn))
 	return err
 }
 
@@ -49,24 +52,21 @@ func (c *memcacheClient) Get(key string) (uint64, error) {
 		}
 	}
 	c.conn.SetDeadline(time.Now().Add(c.timeout))
-	b := make([]byte, 0, len(memdGets)+len(memdSpc)+len(key)+len(memdSep))
-	b = append(b, memdGets...)
-	b = append(b, memdSpc...)
-	b = append(b, []byte(key)...)
-	b = append(b, memdSep...)
-	_, err := c.conn.Write(b)
-	if err != nil {
+	c.rw.Write(memdGets)
+	c.rw.Write(memdSpc)
+	io.WriteString(c.rw, key)
+	c.rw.Write(memdSep)
+	if err := c.rw.Flush(); err != nil {
 		c.close()
 		return 0, err
 	}
 
-	r := bufio.NewReader(c.conn)
-	id, err := readValue(r)
+	id, err := readValue(c.rw.Reader)
 	if err != nil {
 		c.close()
 		return 0, err
 	}
-	end, _, err := r.ReadLine()
+	end, _, err := c.rw.ReadLine()
 	if err != nil {
 		c.close()
 		return 0, err
@@ -87,30 +87,27 @@ func (c *memcacheClient) GetMulti(keys []string) ([]uint64, error) {
 		}
 	}
 	c.conn.SetDeadline(time.Now().Add(c.timeout))
-	b := make([]byte, 0, len(memdGets)+len(memdSpc)+(len(keys[0])+len(memdSpc))*len(keys)+len(memdSep))
-	b = append(b, memdGets...)
+	c.rw.Write(memdGets)
 	for _, key := range keys {
-		b = append(b, memdSpc...)
-		b = append(b, []byte(key)...)
+		c.rw.Write(memdSpc)
+		io.WriteString(c.rw, key)
 	}
-	b = append(b, memdSep...)
-	_, err := c.conn.Write(b)
-	if err != nil {
+	c.rw.Write(memdSep)
+	if err := c.rw.Flush(); err != nil {
 		c.close()
 		return nil, err
 	}
 
 	ids := make([]uint64, 0, len(keys))
-	r := bufio.NewReader(c.conn)
 	for i := 0; i < len(keys); i++ {
-		id, err := readValue(r)
+		id, err := readValue(c.rw.Reader)
 		if err != nil {
 			c.close()
 			return nil, err
 		}
 		ids = append(ids, id)
 	}
-	end, _, err := r.ReadLine()
+	end, _, err := c.rw.ReadLine()
 	if err != nil {
 		c.close()
 		return nil, err
