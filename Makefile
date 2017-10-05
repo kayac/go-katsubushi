@@ -23,4 +23,8 @@ packages:
 	cd pkg && find * -type dir -exec ../pack.sh {} katsubushi \;
 
 get-deps:
-	go get -t -d -v ./...
+	dep ensure
+
+get-dep-on-ci:
+	curl -sL https://github.com/golang/dep/releases/download/v0.3.1/dep-linux-amd64 > ${GOPATH}/bin/dep
+	chmod +x ${GOPATH}/bin/dep
