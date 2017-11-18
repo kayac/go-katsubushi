@@ -418,7 +418,7 @@ func parseStats(str string) (map[string]int64, error) {
 		return nil, fmt.Errorf("end of result != END %#v", lines)
 	}
 	if len(lines)-2 != len(stats) {
-		return nil, fmt.Errorf("includes invalid line %s", stats)
+		return nil, fmt.Errorf("includes invalid line %#v", stats)
 	}
 	return stats, nil
 }
