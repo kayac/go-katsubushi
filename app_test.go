@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -436,6 +437,51 @@ func TestAppEmptyCommand(t *testing.T) {
 	if !strings.HasPrefix(string(_resp), "ERROR") {
 		t.Errorf("expected ERROR got %s", _resp)
 	}
+}
+
+func TestAppStatsReaceCondition(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	app := newTestAppAndListenTCP(ctx, t)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		client, err := newTestClient(app.Listener.Addr().String())
+		if err != nil {
+			t.Fatalf("Failed to connect to app: %s", err)
+		}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			client.Command("GET id")
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		client, err := newTestClient(app.Listener.Addr().String())
+		if err != nil {
+			t.Fatalf("Failed to connect to app: %s", err)
+		}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			client.Command("STATS")
+		}
+	}()
+
+	wg.Wait()
 }
 
 func TestAppCancel(t *testing.T) {
