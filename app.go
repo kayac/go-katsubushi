@@ -53,7 +53,9 @@ type App struct {
 	// App will disconnect connection if there are no commands until idleTimeout.
 	idleTimeout time.Duration
 
-	startedAt        time.Time
+	startedAt time.Time
+
+	// these values are accessed atomically
 	currConnections  int64
 	totalConnections int64
 	cmdGet           int64
@@ -234,11 +236,11 @@ func (app *App) GetStats() MemdStats {
 		Uptime:           int64(now.Sub(app.startedAt).Seconds()),
 		Time:             time.Now().Unix(),
 		Version:          Version,
-		CurrConnections:  app.currConnections,
-		TotalConnections: app.totalConnections,
-		CmdGet:           app.cmdGet,
-		GetHits:          app.getHits,
-		GetMisses:        app.getMisses,
+		CurrConnections:  atomic.LoadInt64(&app.currConnections),
+		TotalConnections: atomic.LoadInt64(&app.totalConnections),
+		CmdGet:           atomic.LoadInt64(&app.cmdGet),
+		GetHits:          atomic.LoadInt64(&app.getHits),
+		GetMisses:        atomic.LoadInt64(&app.getMisses),
 	}
 }
 
