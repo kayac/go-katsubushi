@@ -38,7 +38,10 @@ var (
 	memdStatHeader    = []byte("STAT ")
 	memdVersionHeader = []byte("VERSION ")
 
-	DefaultIdleTimeout  = 600 * time.Second
+	// DefaultIdleTimeout is the default idle timeout.
+	DefaultIdleTimeout = 600 * time.Second
+
+	// InfiniteIdleTimeout means that idle timeout is disabled.
 	InfiniteIdleTimeout = time.Duration(0)
 )
 
@@ -53,7 +56,9 @@ type App struct {
 	// App will disconnect connection if there are no commands until idleTimeout.
 	idleTimeout time.Duration
 
-	startedAt        time.Time
+	startedAt time.Time
+
+	// these values are accessed atomically
 	currConnections  int64
 	totalConnections int64
 	cmdGet           int64
@@ -122,10 +127,12 @@ func SetLogLevel(str string) error {
 	return nil
 }
 
+// StdLogger returns the standard logger.
 func StdLogger() *stdlog.Logger {
 	return zap.NewStdLog(logger)
 }
 
+// ListenFunc is the type for listeners.
 type ListenFunc func(context.Context, string) error
 
 // ListenSock starts listen Unix Domain Socket on sockpath.
@@ -180,7 +187,6 @@ func (app *App) Listen(ctx context.Context, l net.Listener) error {
 
 		go app.handleConn(ctx, conn)
 	}
-	return nil
 }
 
 // Ready returns a channel which become readable when the app can accept connections.
@@ -234,11 +240,11 @@ func (app *App) GetStats() MemdStats {
 		Uptime:           int64(now.Sub(app.startedAt).Seconds()),
 		Time:             time.Now().Unix(),
 		Version:          Version,
-		CurrConnections:  app.currConnections,
-		TotalConnections: app.totalConnections,
-		CmdGet:           app.cmdGet,
-		GetHits:          app.getHits,
-		GetMisses:        app.getMisses,
+		CurrConnections:  atomic.LoadInt64(&app.currConnections),
+		TotalConnections: atomic.LoadInt64(&app.totalConnections),
+		CmdGet:           atomic.LoadInt64(&app.cmdGet),
+		GetHits:          atomic.LoadInt64(&app.getHits),
+		GetMisses:        atomic.LoadInt64(&app.getMisses),
 	}
 }
 
@@ -316,7 +322,7 @@ type MemdCmdGet struct {
 // Execute generates new ID.
 func (cmd *MemdCmdGet) Execute(app *App, conn io.Writer) error {
 	values := make([]string, len(cmd.Keys))
-	for i, _ := range cmd.Keys {
+	for i := range cmd.Keys {
 		id, err := app.NextID()
 		if err != nil {
 			log.Warn(err)
@@ -329,11 +335,12 @@ func (cmd *MemdCmdGet) Execute(app *App, conn io.Writer) error {
 		log.Debugf("Generated ID: %d", id)
 		values[i] = strconv.FormatUint(id, 10)
 	}
-	return MemdValue{
+	_, err := MemdValue{
 		Keys:   cmd.Keys,
 		Flags:  0,
 		Values: values,
 	}.WriteTo(conn)
+	return err
 }
 
 // MemdCmdQuit defines QUIT command.
@@ -349,7 +356,8 @@ type MemdCmdStats int
 
 // Execute writes STATS response.
 func (cmd MemdCmdStats) Execute(app *App, conn io.Writer) error {
-	return app.GetStats().WriteTo(conn)
+	_, err := app.GetStats().WriteTo(conn)
+	return err
 }
 
 // MemdCmdVersion defines VERSION command.
@@ -385,7 +393,7 @@ type MemdStats struct {
 
 // WriteTo writes content of MemdValue to io.Writer.
 // Its format is compatible to memcached protocol.
-func (v MemdValue) WriteTo(w io.Writer) error {
+func (v MemdValue) WriteTo(w io.Writer) (int64, error) {
 	for i, key := range v.Keys {
 		w.Write(memdValHeader)
 		io.WriteString(w, key)
@@ -397,12 +405,12 @@ func (v MemdValue) WriteTo(w io.Writer) error {
 		io.WriteString(w, v.Values[i])
 		w.Write(memdSep)
 	}
-	_, err := w.Write(memdValFooter)
-	return err
+	n, err := w.Write(memdValFooter)
+	return int64(n), err
 }
 
 // WriteTo writes result of STATS command to io.Writer.
-func (s MemdStats) WriteTo(w io.Writer) error {
+func (s MemdStats) WriteTo(w io.Writer) (int64, error) {
 	statsValue := reflect.ValueOf(s)
 	statsType := reflect.TypeOf(s)
 	for i := 0; i < statsType.NumField(); i++ {
@@ -425,6 +433,6 @@ func (s MemdStats) WriteTo(w io.Writer) error {
 		}
 		w.Write(memdSep)
 	}
-	_, err := w.Write(memdValFooter)
-	return err
+	n, err := w.Write(memdValFooter)
+	return int64(n), err
 }
