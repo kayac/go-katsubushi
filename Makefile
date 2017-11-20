@@ -16,7 +16,7 @@ clean:
 	rm -rf cmd/katsubushi/katsubushi pkg/*
 
 test:
-	go test
+	go test -race
 
 packages:
 	cd cmd/katsubushi && gox -os="linux darwin" -arch="386 amd64" -output "../../pkg/${GIT_VER}-{{.OS}}-{{.Arch}}/{{.Dir}}" -ldflags "-w -s -X github.com/kayac/go-katsubushi.Version=${GIT_VER}"
