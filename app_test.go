@@ -42,7 +42,7 @@ func newTestApp(t testing.TB) *App {
 func newTestAppAndListenTCP(ctx context.Context, t testing.TB) *App {
 	app := newTestApp(t)
 
-	go app.ListenTCP(ctx, ":0")
+	go app.ListenTCP(ctx, "localhost:0")
 	<-app.Ready()
 
 	return app
