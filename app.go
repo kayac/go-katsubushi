@@ -197,13 +197,13 @@ func (app *App) Ready() chan interface{} {
 func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	atomic.AddInt64(&(app.totalConnections), 1)
 	atomic.AddInt64(&(app.currConnections), 1)
-	defer atomic.AddInt64(&(app.currConnections), -1)
 
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
 		<-ctx2.Done()
 		conn.Close()
+		atomic.AddInt64(&(app.currConnections), -1)
 	}()
 
 	app.extendDeadline(conn)
