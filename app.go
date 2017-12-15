@@ -198,10 +198,11 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	atomic.AddInt64(&(app.totalConnections), 1)
 	atomic.AddInt64(&(app.currConnections), 1)
 	defer atomic.AddInt64(&(app.currConnections), -1)
-	defer conn.Close()
 
+	ctx2, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		<-ctx.Done()
+		<-ctx2.Done()
 		conn.Close()
 	}()
 
