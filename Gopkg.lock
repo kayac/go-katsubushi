@@ -14,10 +14,10 @@
   revision = "1952afaa557dc08e8e0d89eafab110fb501c1a2b"
 
 [[projects]]
-  branch = "master"
   name = "github.com/fujiwara/raus"
   packages = ["."]
-  revision = "139aa309dc26ab0cb0468b209310c7f583a91bf6"
+  revision = "715e8f5cddf684f4e5f808025268b1c892e7d259"
+  version = "v0.0.2"
 
 [[projects]]
   name = "github.com/fukata/golang-stats-api-handler"
@@ -40,8 +40,8 @@
 [[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
-  revision = "4e336646b2ef9fc6e47be8e21594178f98e5ebcf"
-  version = "v1.2.0"
+  revision = "8474b86a5a6f79c443ce4b2992817ff32cf208b8"
+  version = "v1.3.1"
 
 [[projects]]
   name = "go.uber.org/multierr"
@@ -64,6 +64,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "069a879068263ffa91c2f56f3d15e2f6ab54ad0090e80856239ab07680fd023f"
+  inputs-digest = "003d50159a0cc9bd304e9c0f1e6f72bc05aa77e7e23b3cb367974173784d2b4f"
   solver-name = "gps-cdcl"
   solver-version = 1

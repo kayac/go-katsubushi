@@ -30,8 +30,8 @@
   name = "github.com/bradfitz/gomemcache"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/fujiwara/raus"
+  version = "0.0.2"
 
 [[constraint]]
   name = "github.com/fukata/golang-stats-api-handler"
