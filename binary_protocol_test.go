@@ -1,7 +1,9 @@
 package katsubushi
 
 import (
+	"bufio"
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -37,59 +39,198 @@ func TestToBytes(t *testing.T) {
 }
 
 func TestNewRequest(t *testing.T) {
-	inputBytes := []byte{
-		0x80, 0x02, 0x00, 0x05,
-		0x08, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x12,
+	{
+		input := []byte{
+			0x80, 0x02, 0x00, 0x05,
+			0x08, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x12,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0xde, 0xad, 0xbe, 0xef,
+			0x00, 0x00, 0x1c, 0x20,
+			0x48, 0x65, 0x6c, 0x6c,
+			0x6f, 0x57, 0x6f, 0x72,
+			0x6c, 0x64,
+		}
+		br := bytes.NewReader(input)
+		req, err := newRequest(br)
+
+		if err != nil {
+			t.Errorf("Failed to parse request: %s", err)
+		}
+
+		if req.magic != 0x80 {
+			t.Errorf("Unexpected magic: %x", req.magic)
+		}
+
+		if req.opcode != 0x02 {
+			t.Errorf("Unexpected opcode: %x", req.opcode)
+		}
+
+		if req.dataType != 0x00 {
+			t.Errorf("Unexpected data type: %x", req.dataType)
+		}
+
+		if bytes.Compare(req.vBucket[:], []byte{0x00, 0x00}) != 0 {
+			t.Errorf("Unexpected VBucket: %x", req.vBucket)
+		}
+
+		if bytes.Compare(req.opaque[:], []byte{0x00, 0x00, 0x00, 0x00}) != 0 {
+			t.Errorf("Unexpected opaque: %x", req.opaque)
+		}
+
+		if bytes.Compare(req.cas[:], []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) != 0 {
+			t.Errorf("Unexpected cas: %x", req.cas)
+		}
+
+		if bytes.Compare(req.extras, []byte{0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x1c, 0x20}) != 0 {
+			t.Errorf("Unexpected extras: %x", req.extras)
+		}
+
+		if req.key != "Hello" {
+			t.Errorf("Unexpected kes: %s", req.key)
+		}
+
+		if req.value != "World" {
+			t.Errorf("Unexpected value: %x", req.value)
+		}
+	}
+
+	{
+		input := []byte{
+			0x80, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00,
+		}
+		br := bytes.NewReader(input)
+		_, err := newRequest(br)
+
+		if err == nil {
+			t.Error("too short header is not detected")
+		}
+	}
+
+	{
+		input := []byte{
+			0x82, 0x00, 0x00, 0x00,
+			// extra length = 2
+			0x02, 0x00, 0x00, 0x00,
+			// total body = 1
+			0x00, 0x00, 0x00, 0x02,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			// body = "aa"
+			0x61, 0x61,
+		}
+		br := bytes.NewReader(input)
+		_, err := newRequest(br)
+
+		if err == nil {
+			t.Error("length inconsistency is not detected")
+		}
+	}
+
+	{
+		input := []byte{
+			0x82, 0x00, 0x00, 0x00,
+			// extra length = 2
+			0x02, 0x00, 0x00, 0x00,
+			// total body = 2
+			0x00, 0x00, 0x00, 0x02,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			// body = "a"
+			0x61,
+		}
+		br := bytes.NewReader(input)
+		_, err := newRequest(br)
+
+		if err == nil {
+			t.Error("too short body is not detected")
+		}
+	}
+
+	{
+		input := []byte{
+			0x80, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			// total body = 2
+			0x00, 0x00, 0x00, 0x02,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			// value = "a"
+			0x61,
+		}
+		br := bytes.NewReader(input)
+		_, err := newRequest(br)
+
+		if err == nil {
+			t.Error("too short body is not detected")
+		}
+	}
+
+	{
+		input := []byte{
+			0x80, 0x00, 0x00, 0x00,
+			// extra length = 1
+			0x01, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			// total body = 2
+			0x00, 0x00, 0x00, 0x01,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			// value = "a"
+			0x61,
+		}
+		br := bytes.NewReader(input)
+		_, err := newRequest(br)
+
+		if err == nil {
+			t.Error("too short body is not detected")
+		}
+	}
+}
+
+func TestIsBinaryProtocol(t *testing.T) {
+	app := newTestApp(t)
+
+	binCmd := []byte{
+		0x80, 0x0b, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
-		0xde, 0xad, 0xbe, 0xef,
-		0x00, 0x00, 0x1c, 0x20,
-		0x48, 0x65, 0x6c, 0x6c,
-		0x6f, 0x57, 0x6f, 0x72,
-		0x6c, 0x64,
-	}
-	br := bytes.NewReader(inputBytes)
-	req, err := newRequest(br)
-
-	if err != nil {
-		t.Errorf("Failed to parse request: %s", err)
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
 	}
 
-	if req.magic != 0x80 {
-		t.Errorf("Unexpected magic: %x", req.magic)
+	br := bytes.NewReader(binCmd)
+	bufBr := bufio.NewReader(br)
+	{
+		isBin, err := app.IsBinaryProtocol(bufBr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !isBin {
+			t.Errorf("Binary protocol request is regarded as text protocol")
+		}
 	}
 
-	if req.opcode != 0x02 {
-		t.Errorf("Unexpected opcode: %x", req.opcode)
-	}
-
-	if req.dataType != 0x00 {
-		t.Errorf("Unexpected data type: %x", req.dataType)
-	}
-
-	if bytes.Compare(req.vBucket[:], []byte{0x00, 0x00}) != 0 {
-		t.Errorf("Unexpected VBucket: %x", req.vBucket)
-	}
-
-	if bytes.Compare(req.opaque[:], []byte{0x00, 0x00, 0x00, 0x00}) != 0 {
-		t.Errorf("Unexpected opaque: %x", req.opaque)
-	}
-
-	if bytes.Compare(req.cas[:], []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) != 0 {
-		t.Errorf("Unexpected cas: %x", req.cas)
-	}
-
-	if bytes.Compare(req.extras, []byte{0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x1c, 0x20}) != 0 {
-		t.Errorf("Unexpected extras: %x", req.extras)
-	}
-
-	if req.key != "Hello" {
-		t.Errorf("Unexpected kes: %s", req.key)
-	}
-
-	if req.value != "World" {
-		t.Errorf("Unexpected value: %x", req.value)
+	sr := strings.NewReader("VERSION")
+	bufSr := bufio.NewReader(sr)
+	{
+		isBin, err := app.IsBinaryProtocol(bufSr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if isBin {
+			t.Errorf("Text protocol request is regarded as binary protocol")
+		}
 	}
 }

@@ -66,6 +66,11 @@ func newRequest(r io.Reader) (req request, err error) {
 	extraLen := uint8(buf[4])
 	bodyLen := binary.BigEndian.Uint32(buf[8:12])
 
+	if bodyLen < uint32(keyLen)+uint32(extraLen) {
+		err = fmt.Errorf("total body %d is too small. key length: %d, extra length %d", bodyLen, keyLen, extraLen)
+		return
+	}
+
 	bodyBuf := make([]byte, bodyLen)
 	n2, e2 := io.ReadFull(r, bodyBuf)
 	if uint32(n2) < bodyLen {
