@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestToBytes(t *testing.T) {
+func TestResponseBytes(t *testing.T) {
 	res := response{
 		magic:    0x81,
 		opcode:   0x00,
@@ -19,7 +19,7 @@ func TestToBytes(t *testing.T) {
 		key:      "",
 		value:    "World",
 	}
-	actual := res.toBytes()
+	actual := res.Bytes()
 
 	expected := []byte{
 		0x81, 0x00, 0x00, 0x00,

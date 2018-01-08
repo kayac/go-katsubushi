@@ -33,7 +33,9 @@ func newRequest(r io.Reader) (req request, err error) {
 	req = request{}
 	buf := make([]byte, headerSize)
 	n, e := io.ReadFull(r, buf)
-	if n < headerSize {
+	if n == 0 {
+		err = io.EOF
+	} else if n < headerSize {
 		err = fmt.Errorf("binary request header is shorter than %d: %x", headerSize, buf)
 	}
 	if e != nil {
@@ -41,7 +43,9 @@ func newRequest(r io.Reader) (req request, err error) {
 	}
 
 	req.magic = buf[0]
-	if req.magic != magicRequest {
+	if req.magic == 0x00 {
+		err = io.EOF
+	} else if req.magic != magicRequest {
 		err = fmt.Errorf("invalid request magic: %x", req.magic)
 	}
 
@@ -128,7 +132,7 @@ func newResponse(opcode byte, opaque [4]byte, resConf responseConfig) response {
 	}
 }
 
-func (res response) toBytes() []byte {
+func (res response) Bytes() []byte {
 	extraLen := len(res.extras)
 	keyLen := len(res.key)
 	valueLen := len(res.value)
@@ -194,7 +198,9 @@ func (app *App) RespondToBinary(r io.Reader, w io.Writer) {
 	for {
 		req, err := newRequest(r)
 		if err != nil {
-			log.Warn(err)
+			if err != io.EOF {
+				log.Warn(err)
+			}
 			return
 		}
 
@@ -229,7 +235,7 @@ func (app *App) writeBinaryError(w io.Writer) error {
 		status: [2]byte{0x00, 0x84},
 	})
 
-	n, err := w.Write(res.toBytes())
+	n, err := w.Write(res.Bytes())
 	if n < len(respError) {
 		return fmt.Errorf("failed to write error response")
 	}
@@ -281,7 +287,7 @@ func (cmd *MemdBCmdGet) Execute(app *App, w io.Writer) error {
 		value:  strconv.FormatUint(id, 10),
 	})
 
-	_, err2 := w.Write(res.toBytes())
+	_, err2 := w.Write(res.Bytes())
 	return err2
 }
 
@@ -296,6 +302,6 @@ func (cmd MemdBCmdVersion) Execute(app *App, w io.Writer) error {
 		value: Version,
 	})
 
-	_, err := w.Write(res.toBytes())
+	_, err := w.Write(res.Bytes())
 	return err
 }
