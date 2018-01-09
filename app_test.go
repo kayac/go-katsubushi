@@ -561,7 +561,7 @@ func TestAppBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Logf("cas = %s", cas)
+	t.Logf("cas = %d", cas)
 	t.Logf("flags = %d", flags)
 	t.Logf("id = %s", val)
 
@@ -592,12 +592,12 @@ func TestAppBinarySock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Logf("cas = %s", cas)
+	t.Logf("cas = %d", cas)
 	t.Logf("flags = %d", flags)
 	t.Logf("id = %s", value)
 
 	if cas != 0 {
-		t.Errorf("Unexpected cas: %s", cas)
+		t.Errorf("Unexpected cas: %d", cas)
 	}
 
 	if flags != 0 {
