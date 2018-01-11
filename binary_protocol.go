@@ -202,6 +202,8 @@ func (app *App) IsBinaryProtocol(r *bufio.Reader) (bool, error) {
 // Because the request reader might be buffered.
 func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 	for {
+		app.extendDeadline(conn)
+
 		req, err := newBRequest(r)
 		if err != nil {
 			if err != io.EOF {
@@ -209,8 +211,6 @@ func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 			}
 			return
 		}
-
-		app.extendDeadline(conn)
 
 		cmd, err := app.BytesToBinaryCmd(*req)
 		if err != nil {
