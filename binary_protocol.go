@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"strings"
 	"sync/atomic"
 )
 
@@ -77,10 +76,7 @@ func newBRequest(r io.Reader) (req *bRequest, err error) {
 	}
 
 	bodyBuf := make([]byte, bodyLen)
-	n2, e2 := io.ReadFull(r, bodyBuf)
-	if uint32(n2) < bodyLen {
-		return nil, fmt.Errorf("binary request body is shorter than %d: %x", bodyLen, bodyBuf)
-	}
+	_, e2 := io.ReadFull(r, bodyBuf)
 	if e2 != nil {
 		return nil, fmt.Errorf("failed to read binary request body: %s", e2)
 	}
@@ -142,7 +138,7 @@ func (res bResponse) Bytes() []byte {
 	keyLenBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(keyLenBytes, uint16(keyLen))
 
-	extraLenByte := byte(uint8(extraLen))
+	extraLenByte := byte(extraLen)
 
 	bodyLenBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(bodyLenBytes, uint32(extraLen+valueLen))
@@ -173,17 +169,9 @@ func (res bResponse) Bytes() []byte {
 	data[22] = res.cas[6]
 	data[23] = res.cas[7]
 
-	for i := 0; i < extraLen; i++ {
-		data[i+headerSize] = res.extras[i]
-	}
-
-	for i := 0; i < keyLen; i++ {
-		data[i+headerSize+extraLen] = res.key[i]
-	}
-
-	for i := 0; i < valueLen; i++ {
-		data[i+headerSize+extraLen+keyLen] = res.value[i]
-	}
+	copy(data[headerSize:], res.extras)
+	copy(data[headerSize+extraLen:], res.key)
+	copy(data[headerSize+extraLen+keyLen:], res.value)
 
 	return data
 }
@@ -257,7 +245,7 @@ func (app *App) BytesToBinaryCmd(req bRequest) (cmd MemdCmd, err error) {
 		atomic.AddInt64(&(app.cmdGet), 1)
 		cmd = &MemdBCmdGet{
 			Name:   "GET",
-			Keys:   strings.Fields(req.key),
+			Key:    req.key,
 			Opaque: req.opaque,
 		}
 	case opcodeVersion:
@@ -273,7 +261,7 @@ func (app *App) BytesToBinaryCmd(req bRequest) (cmd MemdCmd, err error) {
 // MemdCmdGet defines binary Get command.
 type MemdBCmdGet struct {
 	Name   string
-	Keys   []string
+	Key    string
 	Opaque [4]byte
 }
 
