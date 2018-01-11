@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func TestResponseBytes(t *testing.T) {
-	res := response{
+func TestBResponseBytes(t *testing.T) {
+	res := bResponse{
 		magic:    0x81,
 		opcode:   0x00,
 		dataType: 0x00,
@@ -38,7 +38,7 @@ func TestResponseBytes(t *testing.T) {
 	}
 }
 
-func TestNewRequest(t *testing.T) {
+func TestNewBRequest(t *testing.T) {
 	{
 		input := []byte{
 			0x80, 0x02, 0x00, 0x05,
@@ -54,7 +54,7 @@ func TestNewRequest(t *testing.T) {
 			0x6c, 0x64,
 		}
 		br := bytes.NewReader(input)
-		req, err := newRequest(br)
+		req, err := newBRequest(br)
 
 		if err != nil {
 			t.Errorf("Failed to parse request: %s", err)
@@ -107,7 +107,7 @@ func TestNewRequest(t *testing.T) {
 			0x00, 0x00, 0x00,
 		}
 		br := bytes.NewReader(input)
-		_, err := newRequest(br)
+		_, err := newBRequest(br)
 
 		if err == nil {
 			t.Error("too short header is not detected")
@@ -128,7 +128,7 @@ func TestNewRequest(t *testing.T) {
 			0x61, 0x61,
 		}
 		br := bytes.NewReader(input)
-		_, err := newRequest(br)
+		_, err := newBRequest(br)
 
 		if err == nil {
 			t.Error("length inconsistency is not detected")
@@ -149,7 +149,7 @@ func TestNewRequest(t *testing.T) {
 			0x61,
 		}
 		br := bytes.NewReader(input)
-		_, err := newRequest(br)
+		_, err := newBRequest(br)
 
 		if err == nil {
 			t.Error("too short body is not detected")
@@ -169,7 +169,7 @@ func TestNewRequest(t *testing.T) {
 			0x61,
 		}
 		br := bytes.NewReader(input)
-		_, err := newRequest(br)
+		_, err := newBRequest(br)
 
 		if err == nil {
 			t.Error("too short body is not detected")
@@ -190,7 +190,7 @@ func TestNewRequest(t *testing.T) {
 			0x61,
 		}
 		br := bytes.NewReader(input)
-		_, err := newRequest(br)
+		_, err := newBRequest(br)
 
 		if err == nil {
 			t.Error("too short body is not detected")

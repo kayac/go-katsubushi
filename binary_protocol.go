@@ -17,7 +17,7 @@ const (
 	opcodeVersion = 0x0b
 )
 
-type request struct {
+type bRequest struct {
 	magic    byte
 	opcode   byte
 	dataType byte
@@ -29,24 +29,24 @@ type request struct {
 	value    string
 }
 
-func newRequest(r io.Reader) (req request, err error) {
-	req = request{}
+func newBRequest(r io.Reader) (req *bRequest, err error) {
+	req = &bRequest{}
 	buf := make([]byte, headerSize)
 	n, e := io.ReadFull(r, buf)
 	if n == 0 {
-		err = io.EOF
+		return nil, io.EOF
 	} else if n < headerSize {
-		err = fmt.Errorf("binary request header is shorter than %d: %x", headerSize, buf)
+		return nil, fmt.Errorf("binary request header is shorter than %d: %x", headerSize, buf)
 	}
 	if e != nil {
-		err = fmt.Errorf("failed to read binary request header: %s", e)
+		return nil, fmt.Errorf("failed to read binary request header: %s", e)
 	}
 
 	req.magic = buf[0]
 	if req.magic == 0x00 {
-		err = io.EOF
+		return nil, io.EOF
 	} else if req.magic != magicRequest {
-		err = fmt.Errorf("invalid request magic: %x", req.magic)
+		return nil, fmt.Errorf("invalid request magic: %x", req.magic)
 	}
 
 	req.opcode = buf[1]
@@ -71,17 +71,16 @@ func newRequest(r io.Reader) (req request, err error) {
 	bodyLen := binary.BigEndian.Uint32(buf[8:12])
 
 	if bodyLen < uint32(keyLen)+uint32(extraLen) {
-		err = fmt.Errorf("total body %d is too small. key length: %d, extra length %d", bodyLen, keyLen, extraLen)
-		return
+		return nil, fmt.Errorf("total body %d is too small. key length: %d, extra length %d", bodyLen, keyLen, extraLen)
 	}
 
 	bodyBuf := make([]byte, bodyLen)
 	n2, e2 := io.ReadFull(r, bodyBuf)
 	if uint32(n2) < bodyLen {
-		err = fmt.Errorf("binary request body is shorter than %d: %x", bodyLen, bodyBuf)
+		return nil, fmt.Errorf("binary request body is shorter than %d: %x", bodyLen, bodyBuf)
 	}
 	if e2 != nil {
-		err = fmt.Errorf("failed to read binary request body: %s", e2)
+		return nil, fmt.Errorf("failed to read binary request body: %s", e2)
 	}
 
 	req.extras = bodyBuf[0:extraLen]
@@ -91,7 +90,7 @@ func newRequest(r io.Reader) (req request, err error) {
 	return
 }
 
-type response struct {
+type bResponse struct {
 	magic    byte
 	opcode   byte
 	dataType byte
@@ -103,7 +102,7 @@ type response struct {
 	value    string
 }
 
-type responseConfig struct {
+type bResponseConfig struct {
 	status [2]byte
 	cas    [8]byte
 	extras []byte
@@ -111,7 +110,7 @@ type responseConfig struct {
 	value  string
 }
 
-func newResponse(opcode byte, opaque [4]byte, resConf responseConfig) response {
+func newBResponse(opcode byte, opaque [4]byte, resConf bResponseConfig) *bResponse {
 	var extras []byte
 	if resConf.extras == nil {
 		extras = []byte{}
@@ -119,7 +118,7 @@ func newResponse(opcode byte, opaque [4]byte, resConf responseConfig) response {
 		extras = resConf.extras
 	}
 
-	return response{
+	return &bResponse{
 		magic:    magicResponse,
 		opcode:   opcode,
 		dataType: 0x00, // data type: reserved for future
@@ -132,7 +131,7 @@ func newResponse(opcode byte, opaque [4]byte, resConf responseConfig) response {
 	}
 }
 
-func (res response) Bytes() []byte {
+func (res bResponse) Bytes() []byte {
 	extraLen := len(res.extras)
 	keyLen := len(res.key)
 	valueLen := len(res.value)
@@ -196,7 +195,7 @@ func (app *App) IsBinaryProtocol(r *bufio.Reader) (bool, error) {
 // RespondToBinary responds to a binary request with a binary response.
 func (app *App) RespondToBinary(r io.Reader, w io.Writer) {
 	for {
-		req, err := newRequest(r)
+		req, err := newBRequest(r)
 		if err != nil {
 			if err != io.EOF {
 				log.Warn(err)
@@ -204,7 +203,7 @@ func (app *App) RespondToBinary(r io.Reader, w io.Writer) {
 			return
 		}
 
-		cmd, err := app.BytesToBinaryCmd(req)
+		cmd, err := app.BytesToBinaryCmd(*req)
 		if err != nil {
 			if err := app.writeBinaryError(w); err != nil {
 				log.Warn("error on write error: %s", err)
@@ -230,7 +229,7 @@ func (app *App) writeBinaryError(w io.Writer) error {
 	// TODO: Opcode, Opaque and Status are static and not accurate. It's better to make them dynamic
 	// opcode: GET, it should be a requested opcode
 	// opaque: zero padding, it should be a requested opaque
-	res := newResponse(opcodeGet, [4]byte{0x00, 0x00, 0x00, 0x00}, responseConfig{
+	res := newBResponse(opcodeGet, [4]byte{0x00, 0x00, 0x00, 0x00}, bResponseConfig{
 		// status: Internal Error, it should be determined by a request or server condition
 		status: [2]byte{0x00, 0x84},
 	})
@@ -243,7 +242,7 @@ func (app *App) writeBinaryError(w io.Writer) error {
 }
 
 // BytesToCmd converts byte array to a MemdBCmd and returns it.
-func (app *App) BytesToBinaryCmd(req request) (cmd MemdCmd, err error) {
+func (app *App) BytesToBinaryCmd(req bRequest) (cmd MemdCmd, err error) {
 	switch req.opcode {
 	case opcodeGet:
 		cmd = &MemdBCmdGet{
@@ -281,7 +280,7 @@ func (cmd *MemdBCmdGet) Execute(app *App, w io.Writer) error {
 	}
 	log.Debugf("Generated ID: %d", id)
 
-	res := newResponse(opcodeGet, cmd.Opaque, responseConfig{
+	res := newBResponse(opcodeGet, cmd.Opaque, bResponseConfig{
 		// fixed 4bytes flags is given to GET response
 		extras: []byte{0x00, 0x00, 0x00, 0x00},
 		value:  strconv.FormatUint(id, 10),
@@ -298,7 +297,7 @@ type MemdBCmdVersion struct {
 
 // Execute writes binary Version number.
 func (cmd MemdBCmdVersion) Execute(app *App, w io.Writer) error {
-	res := newResponse(opcodeVersion, cmd.Opaque, responseConfig{
+	res := newBResponse(opcodeVersion, cmd.Opaque, bResponseConfig{
 		value: Version,
 	})
 
