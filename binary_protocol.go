@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
 const (
@@ -189,11 +191,16 @@ func (res bResponse) Bytes() []byte {
 // IsBinaryProtocol judges whether a protocol is binary or text
 func (app *App) IsBinaryProtocol(r *bufio.Reader) (bool, error) {
 	firstByte, err := r.Peek(1)
-	return firstByte[0] == magicRequest, err
+	if err != nil {
+		return false, err
+	}
+	return firstByte[0] == magicRequest, nil
 }
 
 // RespondToBinary responds to a binary request with a binary response.
-func (app *App) RespondToBinary(r io.Reader, w io.Writer) {
+// A request should be read from r, not conn.
+// Because the request reader might be buffered.
+func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 	for {
 		req, err := newBRequest(r)
 		if err != nil {
@@ -203,15 +210,17 @@ func (app *App) RespondToBinary(r io.Reader, w io.Writer) {
 			return
 		}
 
+		app.extendDeadline(conn)
+
 		cmd, err := app.BytesToBinaryCmd(*req)
 		if err != nil {
-			if err := app.writeBinaryError(w); err != nil {
+			if err := app.writeBinaryError(conn); err != nil {
 				log.Warn("error on write error: %s", err)
 				return
 			}
 			continue
 		}
-		w := bufio.NewWriter(w)
+		w := bufio.NewWriter(conn)
 		if err := cmd.Execute(app, w); err != nil {
 			log.Warn("error on execute cmd %s: %s", cmd, err)
 			return
@@ -245,6 +254,7 @@ func (app *App) writeBinaryError(w io.Writer) error {
 func (app *App) BytesToBinaryCmd(req bRequest) (cmd MemdCmd, err error) {
 	switch req.opcode {
 	case opcodeGet:
+		atomic.AddInt64(&(app.cmdGet), 1)
 		cmd = &MemdBCmdGet{
 			Name:   "GET",
 			Keys:   strings.Fields(req.key),

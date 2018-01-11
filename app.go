@@ -210,13 +210,13 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 
 	bufReader := bufio.NewReader(conn)
 	isBin, err := app.IsBinaryProtocol(bufReader)
+	if err != nil {
+		log.Errorf("error on read first byte to decide binary protocol or not: %s", err)
+		return
+	}
 	if isBin {
 		log.Debug("binary protocol")
 		app.RespondToBinary(bufReader, conn)
-		return
-	}
-	if err != nil {
-		log.Errorf("error on read first byte to decide binary protocol or not: %s", err)
 		return
 	}
 
