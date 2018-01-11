@@ -50,11 +50,17 @@ $ cd $GOPATH/github.com/kayac/go-katsubushi/cmd/katsubushi
 
 ## Protocol
 
-katsubushi use protocol compatible with memcached (text only, not binary).
+katsubushi use protocol compatible with memcached.
+
+Some commands are available with text and binary protocol.
+
+But the others are available only with text protocol.
 
 ### API
 
 #### GET, GETS
+
+Binary protocol is also available only for single key GET.
 
 ```
 GET id1 id2
@@ -86,6 +92,8 @@ STAT get_misses 0
 #### VERSION
 
 Returns a version of katsubushi.
+
+Binary protocol is available, too.
 
 ```
 VERSION 1.1.2
