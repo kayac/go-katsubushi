@@ -227,21 +227,24 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 		cmd, err := app.BytesToCmd(scanner.Bytes())
 		if err != nil {
 			if err := app.writeError(conn); err != nil {
-				log.Warn("error on write error: %s", err)
+				log.Warnf("error on write error: %s", err)
 				return
 			}
 			continue
 		}
 		if err := cmd.Execute(app, w); err != nil {
-			log.Warn("error on execute cmd %s: %s", cmd, err)
+			log.Warnf("error on execute cmd %s: %s", cmd, err)
 			return
 		}
 		if err := w.Flush(); err != nil {
 			if err != io.EOF {
-				log.Warn("error on cmd %s write to conn: %s", cmd, err)
+				log.Warnf("error on cmd %s write to conn: %s", cmd, err)
 			}
 			return
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Warnf("error on scanning request: %s", err)
 	}
 }
 
