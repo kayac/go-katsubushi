@@ -10,4 +10,3 @@ RUN curl -sL https://github.com/kayac/go-katsubushi/releases/download/v1.4.3/kat
 
 EXPOSE 11212
 ENTRYPOINT ["/usr/local/bin/katsubushi"]
-CMD ["-worker-id", "1"]
