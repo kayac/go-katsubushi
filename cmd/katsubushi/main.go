@@ -132,11 +132,18 @@ func mainListener(ctx context.Context, wg *sync.WaitGroup, fn katsubushi.ListenF
 }
 
 func newKatsubushiListenFunc(kc *katsubushiConfig) (katsubushi.ListenFunc, string, error) {
-	app, err := katsubushi.NewApp(kc.workerID)
-	if err != nil {
-		return nil, "", err
+	var timeout time.Duration
+	if kc.idleTimeout == 0 {
+		timeout = katsubushi.InfiniteIdleTimeout
+	} else {
+		timeout = time.Duration(kc.idleTimeout) * time.Second
 	}
-	if err := app.SetIdleTimeout(kc.idleTimeout); err != nil {
+
+	app, err := katsubushi.NewApp(katsubushi.Option{
+		WorkerID:    kc.workerID,
+		IdleTimeout: &timeout,
+	})
+	if err != nil {
 		return nil, "", err
 	}
 	if kc.sockpath != "" {

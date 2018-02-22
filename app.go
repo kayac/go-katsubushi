@@ -66,33 +66,31 @@ type App struct {
 	getMisses        int64
 }
 
+// Option represents a App optional parameters.
+type Option struct {
+	WorkerID    uint
+	IdleTimeout *time.Duration
+}
+
 // NewApp create and returns new App instance.
-func NewApp(workerID uint) (*App, error) {
-	gen, err := NewGenerator(workerID)
+func NewApp(opt Option) (*App, error) {
+	gen, err := NewGenerator(opt.WorkerID)
 	if err != nil {
 		return nil, err
 	}
+	var timeout time.Duration
+	if opt.IdleTimeout != nil {
+		timeout = *opt.IdleTimeout
+	} else {
+		timeout = DefaultIdleTimeout
+	}
 
 	return &App{
-		idleTimeout: DefaultIdleTimeout,
+		idleTimeout: timeout,
 		gen:         gen,
 		startedAt:   time.Now(),
 		readyCh:     make(chan interface{}),
 	}, nil
-}
-
-// SetIdleTimeout sets duration before disconnect caused by idle networking.
-// To disable idle timeout, set 0.
-func (app *App) SetIdleTimeout(timeout int) error {
-	app.mu.Lock()
-	defer app.mu.Unlock()
-	if timeout < 0 {
-		return fmt.Errorf("timeout must be positive")
-	}
-
-	app.idleTimeout = time.Duration(timeout) * time.Second
-
-	return nil
 }
 
 // SetLogLevel sets log level.
@@ -315,8 +313,6 @@ func (app *App) BytesToCmd(data []byte) (cmd MemdCmd, err error) {
 }
 
 func (app *App) extendDeadline(conn net.Conn) {
-	app.mu.Lock()
-	defer app.mu.Unlock()
 	if app.idleTimeout == InfiniteIdleTimeout {
 		return
 	}

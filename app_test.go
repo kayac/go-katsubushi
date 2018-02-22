@@ -33,16 +33,19 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func newTestApp(t testing.TB) *App {
-	app, err := NewApp(getNextWorkerID())
+func newTestApp(t testing.TB, timeout *time.Duration) *App {
+	app, err := NewApp(Option{
+		WorkerID:    getNextWorkerID(),
+		IdleTimeout: timeout,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return app
 }
 
-func newTestAppAndListenTCP(ctx context.Context, t testing.TB) *App {
-	app := newTestApp(t)
+func newTestAppAndListenTCP(ctx context.Context, t testing.TB, timeout *time.Duration) *App {
+	app := newTestApp(t, timeout)
 
 	go app.ListenTCP(ctx, "localhost:0")
 	<-app.Ready()
@@ -51,7 +54,7 @@ func newTestAppAndListenTCP(ctx context.Context, t testing.TB) *App {
 }
 
 func newTestAppAndListenSock(ctx context.Context, t testing.TB) (*App, string) {
-	app := newTestApp(t)
+	app := newTestApp(t, nil)
 
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
 
@@ -63,7 +66,7 @@ func newTestAppAndListenSock(ctx context.Context, t testing.TB) (*App, string) {
 
 func TestApp(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	mc := memcache.New(app.Listener.Addr().String())
 
 	item, err := mc.Get("hoge")
@@ -90,7 +93,7 @@ func TestApp(t *testing.T) {
 
 func TestAppMulti(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	mc := memcache.New(app.Listener.Addr().String())
 	keys := []string{"foo", "bar", "baz"}
 	items, err := mc.GetMulti(keys)
@@ -144,7 +147,7 @@ func TestAppSock(t *testing.T) {
 
 func TestAppError(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	mc := memcache.New(app.Listener.Addr().String())
 
 	err := mc.Set(&memcache.Item{
@@ -163,8 +166,8 @@ func TestAppError(t *testing.T) {
 
 func TestAppIdleTimeout(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
-	app.SetIdleTimeout(1)
+	to := time.Second
+	app := newTestAppAndListenTCP(ctx, t, &to)
 
 	mc := memcache.New(app.Listener.Addr().String())
 
@@ -192,7 +195,10 @@ func TestAppIdleTimeout(t *testing.T) {
 }
 
 func BenchmarkApp(b *testing.B) {
-	app, _ := NewApp(getNextWorkerID())
+	app, _ := NewApp(Option{
+		WorkerID:    getNextWorkerID(),
+		IdleTimeout: nil,
+	})
 	go app.ListenTCP(context.Background(), ":0")
 	<-app.Ready()
 
@@ -218,7 +224,10 @@ func BenchmarkApp(b *testing.B) {
 }
 
 func BenchmarkAppSock(b *testing.B) {
-	app, _ := NewApp(getNextWorkerID())
+	app, _ := NewApp(Option{
+		WorkerID:    getNextWorkerID(),
+		IdleTimeout: nil,
+	})
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
 	defer os.RemoveAll(tmpDir)
 
@@ -317,7 +326,7 @@ func newTestClientSock(path string) (*testClient, error) {
 
 func TestAppVersion(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -330,7 +339,7 @@ func TestAppVersion(t *testing.T) {
 
 func TestAppQuit(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -344,7 +353,7 @@ func TestAppQuit(t *testing.T) {
 
 func TestAppStats(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatalf("Failed to connect to app: %s", err)
@@ -427,7 +436,7 @@ func parseStats(str string) (map[string]int64, error) {
 
 func TestAppEmptyCommand(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	client, err := newTestClient(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -444,7 +453,7 @@ func TestAppEmptyCommand(t *testing.T) {
 func TestAppStatsRaceCondition(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -488,7 +497,7 @@ func TestAppStatsRaceCondition(t *testing.T) {
 
 func TestAppCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	{
 		client, err := newTestClient(app.Listener.Addr().String())
 		if err != nil {
