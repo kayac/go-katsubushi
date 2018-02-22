@@ -1,15 +1,16 @@
 package katsubushi
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
-var nextWorkerID uint
+var nextWorkerID uint32
 
 func getNextWorkerID() uint {
-	nextWorkerID++
-	return nextWorkerID
+	atomic.AddUint32(&nextWorkerID, 1)
+	return uint(nextWorkerID)
 }
 
 func TestInvalidWorkerID(t *testing.T) {
