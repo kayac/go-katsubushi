@@ -31,13 +31,8 @@ https://hub.docker.com/r/katsubushi/katsubushi/
 
 ```
 $ docker pull katsubushi/katsubushi
-$ docker run -p 11212:11212 katsubushi/katsubushi
-```
-
-If you want to specify `worker_id`, set by an environment variable.
-
-```
-$ docker run -e "worker_id=123" -p 11212:11212 katsubushi/katsubushi
+$ docker run -p 11212:11212 katsubushi/katsubushi -worker-id 1
+$ docker run -p 11212:11212 katsubushi/katsubushi -redis redis://your.redis.host:6379/0
 ```
 
 ## Usage
