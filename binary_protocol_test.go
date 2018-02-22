@@ -199,7 +199,7 @@ func TestNewBRequest(t *testing.T) {
 }
 
 func TestIsBinaryProtocol(t *testing.T) {
-	app := newTestApp(t)
+	app := newTestApp(t, nil)
 
 	binCmd := []byte{
 		0x80, 0x0b, 0x00, 0x00,

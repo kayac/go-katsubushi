@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"encoding/hex"
+
 	"github.com/bmizerany/mc"
 	"github.com/bradfitz/gomemcache/memcache"
 )
@@ -559,7 +560,7 @@ func newTestClientBinarySock(path string) (*testClientBinary, error) {
 
 func TestAppBinary(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	cn, err := mc.Dial("tcp", app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -620,7 +621,7 @@ func TestAppBinarySock(t *testing.T) {
 
 func TestAppBinaryError(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	client, err := newTestClientBinary(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -663,8 +664,8 @@ func TestAppBinaryError(t *testing.T) {
 
 func TestAppBinaryIdleTimeout(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
-	app.SetIdleTimeout(1)
+	timeout := 1 * time.Second
+	app := newTestAppAndListenTCP(ctx, t, &timeout)
 
 	cn, err := mc.Dial("tcp", app.Listener.Addr().String())
 	if err != nil {
@@ -695,7 +696,7 @@ func TestAppBinaryIdleTimeout(t *testing.T) {
 }
 
 func BenchmarkAppBinary(b *testing.B) {
-	app, _ := NewApp(getNextWorkerID())
+	app, _ := NewApp(Option{WorkerID: getNextWorkerID(), IdleTimeout: nil})
 	go app.ListenTCP(context.Background(), ":0")
 	<-app.Ready()
 
@@ -731,7 +732,7 @@ func BenchmarkAppBinary(b *testing.B) {
 }
 
 func BenchmarkAppBinarySock(b *testing.B) {
-	app, _ := NewApp(getNextWorkerID())
+	app, _ := NewApp(Option{WorkerID: getNextWorkerID(), IdleTimeout: nil})
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
 	defer os.RemoveAll(tmpDir)
 
@@ -774,7 +775,7 @@ func BenchmarkAppBinarySock(b *testing.B) {
 
 func TestAppBinaryVersion(t *testing.T) {
 	ctx := context.Background()
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	client, err := newTestClientBinary(app.Listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
@@ -817,7 +818,7 @@ func TestAppBinaryCancel(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	app := newTestAppAndListenTCP(ctx, t)
+	app := newTestAppAndListenTCP(ctx, t, nil)
 	{
 		client, err := newTestClientBinary(app.Listener.Addr().String())
 		if err != nil {
