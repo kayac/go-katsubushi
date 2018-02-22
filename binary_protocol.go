@@ -203,19 +203,19 @@ func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 		cmd, err := app.BytesToBinaryCmd(*req)
 		if err != nil {
 			if err := app.writeBinaryError(conn); err != nil {
-				log.Warn("error on write error: %s", err)
+				log.Warnf("error on write error: %s", err)
 				return
 			}
 			continue
 		}
 		w := bufio.NewWriter(conn)
 		if err := cmd.Execute(app, w); err != nil {
-			log.Warn("error on execute cmd %s: %s", cmd, err)
+			log.Warnf("error on execute cmd %s: %s", cmd, err)
 			return
 		}
 		if err := w.Flush(); err != nil {
 			if err != io.EOF {
-				log.Warn("error on cmd %s write: %s", cmd, err)
+				log.Warnf("error on cmd %s write: %s", cmd, err)
 			}
 			return
 		}
