@@ -181,7 +181,7 @@ func (app *App) Listen(ctx context.Context, l net.Listener) error {
 				return err
 			}
 		}
-		log.Debugf("Connected by %s", conn.RemoteAddr().String())
+		log.Debugf("Connected from %s", conn.RemoteAddr().String())
 
 		go app.handleConn(ctx, conn)
 	}
@@ -202,6 +202,7 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 		<-ctx2.Done()
 		conn.Close()
 		atomic.AddInt64(&(app.currConnections), -1)
+		log.Debugf("Closed %s", conn.RemoteAddr().String())
 	}()
 
 	app.extendDeadline(conn)
@@ -209,7 +210,9 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	bufReader := bufio.NewReader(conn)
 	isBin, err := app.IsBinaryProtocol(bufReader)
 	if err != nil {
-		log.Errorf("error on read first byte to decide binary protocol or not: %s", err)
+		if err != io.EOF {
+			log.Errorf("error on read first byte to decide binary protocol or not: %s", err)
+		}
 		return
 	}
 	if isBin {
