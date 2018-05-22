@@ -93,6 +93,23 @@ func NewApp(opt Option) (*App, error) {
 	}, nil
 }
 
+// NewAppWithGenerator create and returns new App instance with specified Generator.
+func NewAppWithGenerator(gen Generator, opt Option) (*App, error) {
+	var timeout time.Duration
+	if opt.IdleTimeout != nil {
+		timeout = *opt.IdleTimeout
+	} else {
+		timeout = DefaultIdleTimeout
+	}
+
+	return &App{
+		idleTimeout: timeout,
+		gen:         gen,
+		startedAt:   time.Now(),
+		readyCh:     make(chan interface{}),
+	}, nil
+}
+
 // SetLogLevel sets log level.
 // Log level must be one of debug, info, warning, error, fatal and panic.
 func SetLogLevel(str string) error {

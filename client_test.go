@@ -223,6 +223,24 @@ func TestClientFailBackupMulti(t *testing.T) {
 	t.Logf("error: %s", err)
 }
 
+func TestClientTimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	app := newTestAppDelayed(t, time.Second)
+	go app.ListenTCP(ctx, "localhost:0")
+	<-app.Ready()
+
+	c := NewClient(app.Listener.Addr().String())
+	c.SetTimeout(500 * time.Millisecond)
+
+	_, err := c.Fetch()
+	if err == nil {
+		t.Error("timeout expected but err is nil")
+	}
+	t.Logf("client timeout: %s", err)
+}
+
 func cancelAndWait(cancel context.CancelFunc) {
 	cancel()
 	time.Sleep(100 * time.Millisecond)

@@ -28,6 +28,12 @@ func newMemcacheClient(addr string) *memcacheClient {
 	}
 }
 
+func (c *memcacheClient) SetTimeout(t time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.timeout = t
+}
+
 func (c *memcacheClient) connect() error {
 	var err error
 	c.conn, err = net.DialTimeout("tcp", c.addr, c.timeout)

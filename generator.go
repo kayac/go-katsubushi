@@ -7,6 +7,19 @@ import (
 )
 
 var nowFunc = time.Now
+var nowMutex sync.RWMutex
+
+func setNowFunc(f func() time.Time) {
+	nowMutex.Lock()
+	defer nowMutex.Unlock()
+	nowFunc = f
+}
+
+func now() time.Time {
+	nowMutex.RLock()
+	defer nowMutex.RUnlock()
+	return nowFunc()
+}
 
 // Epoch is katsubushi epoch time (2015-01-01 00:00:00 UTC)
 // Generated ID includes elapsed time from Epoch.
@@ -71,11 +84,11 @@ func NewGenerator(workerID uint) (Generator, error) {
 	// save as already used
 	workerIDPool = append(workerIDPool, workerID)
 
-	now := nowFunc()
+	n := now()
 	return &generator{
 		workerID:  workerID,
-		startedAt: now,
-		offset:    now.Sub(Epoch),
+		startedAt: n,
+		offset:    n.Sub(Epoch),
 	}, nil
 }
 
@@ -110,7 +123,7 @@ func (g *generator) NextID() (uint64, error) {
 }
 
 func (g *generator) timestamp() uint64 {
-	d := nowFunc().Sub(g.startedAt) + g.offset
+	d := now().Sub(g.startedAt) + g.offset
 	return uint64(d.Nanoseconds()) / uint64(time.Millisecond)
 }
 
