@@ -49,7 +49,7 @@ var (
 type App struct {
 	Listener net.Listener
 
-	gen     *Generator
+	gen     Generator
 	readyCh chan interface{}
 	mu      sync.Mutex
 
@@ -157,7 +157,7 @@ func (app *App) ListenTCP(ctx context.Context, addr string) error {
 func (app *App) Listen(ctx context.Context, l net.Listener) error {
 	defer logger.Sync()
 	log.Infof("Listening at %s", l.Addr().String())
-	log.Infof("Worker ID = %d", app.gen.WorkerID)
+	log.Infof("Worker ID = %d", app.gen.WorkerID())
 
 	app.Listener = l
 	close(app.readyCh)

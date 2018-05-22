@@ -43,9 +43,14 @@ func checkWorkerID(id uint) error {
 	return nil
 }
 
-// Generator is generater for unique ID.
-type Generator struct {
-	WorkerID      uint
+// Generator is an interface to generate unique ID.
+type Generator interface {
+	NextID() (uint64, error)
+	WorkerID() uint
+}
+
+type generator struct {
+	workerID      uint
 	lastTimestamp uint64
 	sequence      uint
 	lock          sync.Mutex
@@ -54,7 +59,7 @@ type Generator struct {
 }
 
 // NewGenerator returns new generator.
-func NewGenerator(workerID uint) (*Generator, error) {
+func NewGenerator(workerID uint) (Generator, error) {
 	// To keep worker ID be unique.
 	newGeneratorLock.Lock()
 	defer newGeneratorLock.Unlock()
@@ -67,16 +72,19 @@ func NewGenerator(workerID uint) (*Generator, error) {
 	workerIDPool = append(workerIDPool, workerID)
 
 	now := nowFunc()
-	g := Generator{
-		WorkerID:  workerID,
+	return &generator{
+		workerID:  workerID,
 		startedAt: now,
 		offset:    now.Sub(Epoch),
-	}
-	return &g, nil
+	}, nil
+}
+
+func (g *generator) WorkerID() uint {
+	return g.workerID
 }
 
 // NextID generate new ID.
-func (g *Generator) NextID() (uint64, error) {
+func (g *generator) NextID() (uint64, error) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
@@ -98,15 +106,15 @@ func (g *Generator) NextID() (uint64, error) {
 	}
 	g.lastTimestamp = ts
 
-	return (g.lastTimestamp << (WorkerIDBits + SequenceBits)) | (uint64(g.WorkerID) << SequenceBits) | (uint64(g.sequence)), nil
+	return (g.lastTimestamp << (WorkerIDBits + SequenceBits)) | (uint64(g.workerID) << SequenceBits) | (uint64(g.sequence)), nil
 }
 
-func (g *Generator) timestamp() uint64 {
+func (g *generator) timestamp() uint64 {
 	d := nowFunc().Sub(g.startedAt) + g.offset
 	return uint64(d.Nanoseconds()) / uint64(time.Millisecond)
 }
 
-func (g *Generator) waitUntilNextTick(ts uint64) uint64 {
+func (g *generator) waitUntilNextTick(ts uint64) uint64 {
 	next := g.timestamp()
 
 	for next <= ts {
