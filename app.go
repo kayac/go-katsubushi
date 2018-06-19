@@ -223,8 +223,13 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 
 	scanner := bufio.NewScanner(bufReader)
 	w := bufio.NewWriter(conn)
+	var deadline time.Time
 	for scanner.Scan() {
-		app.extendDeadline(conn)
+		deadline, err = app.extendDeadline(conn)
+		if err != nil {
+			log.Warnf("error on set deadline: %s", err)
+			return
+		}
 		cmd, err := app.BytesToCmd(scanner.Bytes())
 		if err != nil {
 			if err := app.writeError(conn); err != nil {
@@ -234,7 +239,9 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 			continue
 		}
 		if err := cmd.Execute(app, w); err != nil {
-			log.Warnf("error on execute cmd %s: %s", cmd, err)
+			if err != io.EOF {
+				log.Warnf("error on execute cmd %s: %s", cmd, err)
+			}
 			return
 		}
 		if err := w.Flush(); err != nil {
@@ -245,7 +252,11 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		log.Warnf("error on scanning request: %s", err)
+		if !deadline.IsZero() && time.Now().After(deadline) {
+			log.Debugf("deadline exceeded: %s", err)
+		} else {
+			log.Warnf("error on scanning request: %s", err)
+		}
 	}
 }
 
@@ -315,12 +326,12 @@ func (app *App) BytesToCmd(data []byte) (cmd MemdCmd, err error) {
 	return
 }
 
-func (app *App) extendDeadline(conn net.Conn) {
+func (app *App) extendDeadline(conn net.Conn) (time.Time, error) {
 	if app.idleTimeout == InfiniteIdleTimeout {
-		return
+		return time.Time{}, nil
 	}
-
-	conn.SetDeadline(time.Now().Add(app.idleTimeout))
+	d := time.Now().Add(app.idleTimeout)
+	return d, conn.SetDeadline(d)
 }
 
 // MemdCmd defines a command.
