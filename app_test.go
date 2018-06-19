@@ -34,11 +34,53 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+type delayedGenerator struct {
+	gen      Generator
+	workerID uint
+	delay    time.Duration
+}
+
+func newDelayedGenerator(opt Option, delay time.Duration) (*delayedGenerator, error) {
+	g, err := NewGenerator(opt.WorkerID)
+	if err != nil {
+		return nil, err
+	}
+	return &delayedGenerator{
+		gen:      g,
+		workerID: opt.WorkerID,
+		delay:    delay,
+	}, nil
+}
+
+func (g *delayedGenerator) NextID() (uint64, error) {
+	time.Sleep(g.delay)
+	return g.gen.NextID()
+}
+
+func (g *delayedGenerator) WorkerID() uint {
+	return g.workerID
+}
+
 func newTestApp(t testing.TB, timeout *time.Duration) *App {
 	app, err := NewApp(Option{
 		WorkerID:    getNextWorkerID(),
 		IdleTimeout: timeout,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return app
+}
+
+func newTestAppDelayed(t testing.TB, delay time.Duration) *App {
+	opt := Option{
+		WorkerID: getNextWorkerID(),
+	}
+	gen, err := newDelayedGenerator(opt, delay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := NewAppWithGenerator(gen, opt)
 	if err != nil {
 		t.Fatal(err)
 	}

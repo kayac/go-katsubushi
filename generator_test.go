@@ -125,9 +125,9 @@ func TestClockRollback(t *testing.T) {
 	}
 
 	// サーバーの時計が巻き戻った想定
-	nowFunc = func() time.Time {
+	setNowFunc(func() time.Time {
 		return time.Now().Add(-10 * time.Minute)
-	}
+	})
 
 	_, err = g.NextID()
 	if err == nil {

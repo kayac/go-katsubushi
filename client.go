@@ -2,6 +2,7 @@ package katsubushi
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/Songmu/retry"
 	"github.com/pkg/errors"
@@ -21,6 +22,13 @@ func NewClient(addrs ...string) *Client {
 		c.memcacheClients = append(c.memcacheClients, newMemcacheClient(addr))
 	}
 	return c
+}
+
+// SetTimeout sets timeout to katsubushi servers
+func (c *Client) SetTimeout(t time.Duration) {
+	for _, mc := range c.memcacheClients {
+		mc.SetTimeout(t)
+	}
 }
 
 // Fetch fetches id from katubushi

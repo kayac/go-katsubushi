@@ -7,6 +7,19 @@ import (
 )
 
 var nowFunc = time.Now
+var nowMutex sync.RWMutex
+
+func setNowFunc(f func() time.Time) {
+	nowMutex.Lock()
+	defer nowMutex.Unlock()
+	nowFunc = f
+}
+
+func now() time.Time {
+	nowMutex.RLock()
+	defer nowMutex.RUnlock()
+	return nowFunc()
+}
 
 // Epoch is katsubushi epoch time (2015-01-01 00:00:00 UTC)
 // Generated ID includes elapsed time from Epoch.
@@ -43,9 +56,14 @@ func checkWorkerID(id uint) error {
 	return nil
 }
 
-// Generator is generater for unique ID.
-type Generator struct {
-	WorkerID      uint
+// Generator is an interface to generate unique ID.
+type Generator interface {
+	NextID() (uint64, error)
+	WorkerID() uint
+}
+
+type generator struct {
+	workerID      uint
 	lastTimestamp uint64
 	sequence      uint
 	lock          sync.Mutex
@@ -54,7 +72,7 @@ type Generator struct {
 }
 
 // NewGenerator returns new generator.
-func NewGenerator(workerID uint) (*Generator, error) {
+func NewGenerator(workerID uint) (Generator, error) {
 	// To keep worker ID be unique.
 	newGeneratorLock.Lock()
 	defer newGeneratorLock.Unlock()
@@ -66,17 +84,20 @@ func NewGenerator(workerID uint) (*Generator, error) {
 	// save as already used
 	workerIDPool = append(workerIDPool, workerID)
 
-	now := nowFunc()
-	g := Generator{
-		WorkerID:  workerID,
-		startedAt: now,
-		offset:    now.Sub(Epoch),
-	}
-	return &g, nil
+	n := now()
+	return &generator{
+		workerID:  workerID,
+		startedAt: n,
+		offset:    n.Sub(Epoch),
+	}, nil
+}
+
+func (g *generator) WorkerID() uint {
+	return g.workerID
 }
 
 // NextID generate new ID.
-func (g *Generator) NextID() (uint64, error) {
+func (g *generator) NextID() (uint64, error) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
@@ -98,15 +119,15 @@ func (g *Generator) NextID() (uint64, error) {
 	}
 	g.lastTimestamp = ts
 
-	return (g.lastTimestamp << (WorkerIDBits + SequenceBits)) | (uint64(g.WorkerID) << SequenceBits) | (uint64(g.sequence)), nil
+	return (g.lastTimestamp << (WorkerIDBits + SequenceBits)) | (uint64(g.workerID) << SequenceBits) | (uint64(g.sequence)), nil
 }
 
-func (g *Generator) timestamp() uint64 {
-	d := nowFunc().Sub(g.startedAt) + g.offset
+func (g *generator) timestamp() uint64 {
+	d := now().Sub(g.startedAt) + g.offset
 	return uint64(d.Nanoseconds()) / uint64(time.Millisecond)
 }
 
-func (g *Generator) waitUntilNextTick(ts uint64) uint64 {
+func (g *generator) waitUntilNextTick(ts uint64) uint64 {
 	next := g.timestamp()
 
 	for next <= ts {
