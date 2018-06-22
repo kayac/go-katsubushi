@@ -269,6 +269,12 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
+		select {
+		case <-ctx.Done():
+			// shutting down
+			return
+		default:
+		}
 		if !deadline.IsZero() && time.Now().After(deadline) {
 			log.Debugf("deadline exceeded: %s", err)
 		} else {
