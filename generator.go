@@ -30,7 +30,7 @@ const (
 	WorkerIDBits = 10
 	SequenceBits = 12
 	workerIDMask = -1 ^ (-1 << WorkerIDBits)
-	sequenseMask = -1 ^ (-1 << SequenceBits)
+	sequenceMask = -1 ^ (-1 << SequenceBits)
 )
 
 var workerIDPool = []uint{}
@@ -109,7 +109,7 @@ func (g *generator) NextID() (uint64, error) {
 	}
 
 	if ts == g.lastTimestamp {
-		g.sequence = (g.sequence + 1) & sequenseMask
+		g.sequence = (g.sequence + 1) & sequenceMask
 		if g.sequence == 0 {
 			// overflow
 			ts = g.waitUntilNextTick(ts)
