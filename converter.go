@@ -17,8 +17,8 @@ func ToID(t time.Time) uint64 {
 }
 
 // Dump returns the structure of id.
-func Dump(id uint64) (t time.Time, workerID uint64, sequense uint64) {
+func Dump(id uint64) (t time.Time, workerID uint64, sequence uint64) {
 	workerID = (id & (workerIDMask << SequenceBits)) >> SequenceBits
-	sequense = id & sequenseMask
-	return ToTime(id), workerID, sequense
+	sequence = id & sequenceMask
+	return ToTime(id), workerID, sequence
 }
