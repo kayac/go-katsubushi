@@ -2,12 +2,10 @@ sudo: false
 language: go
 
 go:
-  - 1.8.x
-  - 1.9.x
+  - 1.11.5
+  - 1.12
   - tip
 
 install:
-  - make get-dep-on-ci
-  - make get-deps
   - make test
   - make install
