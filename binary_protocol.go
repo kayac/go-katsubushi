@@ -347,7 +347,7 @@ func (cmd *MemdBCmdStat) Execute(app *App, w io.Writer) error {
 			return err
 		}
 	}
-	// for teminate the sequence
+	// to teminate the sequence
 	emptyRes := newBResponse(opcodeStat, cmd.Opaque, bResponseConfig{})
 	_, err := w.Write(emptyRes.Bytes())
 	return err
