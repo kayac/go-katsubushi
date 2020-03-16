@@ -143,7 +143,7 @@ func (res bResponse) Bytes() []byte {
 	extraLenByte := byte(extraLen)
 
 	bodyLenBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(bodyLenBytes, uint32(extraLen+valueLen))
+	binary.BigEndian.PutUint32(bodyLenBytes, uint32(extraLen+keyLen+valueLen))
 
 	data := make([]byte, totalLen)
 	data[0] = res.magic
