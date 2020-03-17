@@ -321,6 +321,10 @@ type MemdBCmdStat struct {
 func (cmd *MemdBCmdStat) Execute(app *App, w io.Writer) error {
 	// ignore optional key (items, slabs) for now
 	s := app.GetStats()
+	return s.writeBinaryTo(w, cmd.Opaque)
+}
+
+func (s MemdStats) writeBinaryTo(w io.Writer, opaque [4]byte) error {
 	statsValue := reflect.ValueOf(s)
 	statsType := reflect.TypeOf(s)
 	for i := 0; i < statsType.NumField(); i++ {
@@ -339,7 +343,7 @@ func (cmd *MemdBCmdStat) Execute(app *App, w io.Writer) error {
 		case string:
 			val = string(_v)
 		}
-		res := newBResponse(opcodeStat, cmd.Opaque, bResponseConfig{
+		res := newBResponse(opcodeStat, opaque, bResponseConfig{
 			key:   tag,
 			value: val,
 		})
@@ -348,7 +352,7 @@ func (cmd *MemdBCmdStat) Execute(app *App, w io.Writer) error {
 		}
 	}
 	// to teminate the sequence
-	emptyRes := newBResponse(opcodeStat, cmd.Opaque, bResponseConfig{})
+	emptyRes := newBResponse(opcodeStat, opaque, bResponseConfig{})
 	_, err := w.Write(emptyRes.Bytes())
 	return err
 }
