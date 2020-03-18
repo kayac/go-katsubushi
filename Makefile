@@ -36,5 +36,8 @@ docker: clean packages
 	docker build \
 		--build-arg VERSION=v${GIT_VER} \
 		-f docker/Dockerfile \
-		-t katsubushi/katsubushi:${GIT_VER} \
+		-t katsubushi/katsubushi:v${GIT_VER} \
 		.
+
+docker-push: docker
+    docker push katsubushi/katsubushi:v${GIT_VER}
