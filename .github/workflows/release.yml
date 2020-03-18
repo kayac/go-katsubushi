@@ -40,4 +40,5 @@ jobs:
 
     - name: docker
       run: |
-        PATH=~/bin:$PATH make docker-push
+        PATH=~/bin:$PATH make docker-image
+        make docker-push

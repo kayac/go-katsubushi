@@ -9,7 +9,7 @@ cmd/katsubushi/katsubushi: *.go cmd/katsubushi/*.go
 	cd cmd/katsubushi && go build -ldflags "-w -s -X github.com/kayac/go-katsubushi.Version=${GIT_VER}"
 
 
-.PHONEY: clean test packages install
+.PHONEY: clean test packages install release docker-image docker-push
 install: cmd/katsubushi/katsubushi
 	install cmd/katsubushi/katsubushi ${GOPATH}/bin
 
@@ -39,5 +39,5 @@ docker-image: clean packages
 		-t katsubushi/katsubushi:v${GIT_VER} \
 		.
 
-docker-push: docker-image
-    docker push katsubushi/katsubushi:v${GIT_VER}
+docker-push:
+	docker push katsubushi/katsubushi:v${GIT_VER}
