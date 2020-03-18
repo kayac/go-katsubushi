@@ -31,7 +31,7 @@ packages:
 release:
 	ghr -u kayac -r go-katsubushi -n "v${GIT_VER}" ${GIT_VER} dist/
 
-docker: clean packages
+docker-image: clean packages
 	cd dist && tar xvf go-katsubushi_v${GIT_VER}_linux_amd64.tar.gz
 	docker build \
 		--build-arg VERSION=v${GIT_VER} \
@@ -39,5 +39,5 @@ docker: clean packages
 		-t katsubushi/katsubushi:v${GIT_VER} \
 		.
 
-docker-push: docker
+docker-push: docker-image
     docker push katsubushi/katsubushi:v${GIT_VER}
