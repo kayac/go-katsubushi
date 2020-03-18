@@ -31,8 +31,13 @@ jobs:
       run: PATH=~/bin:$PATH make release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Docker Login
+      uses: azure/docker-login@v1
+      with:
+        username: fujiwara
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
     - name: docker
       run: |
         PATH=~/bin:$PATH make docker-push
-      env:
-        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
