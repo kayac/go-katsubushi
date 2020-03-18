@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"reflect"
 	"strconv"
 	"sync/atomic"
 )
@@ -16,6 +17,7 @@ const (
 	magicResponse = 0x81
 	opcodeGet     = 0x00
 	opcodeVersion = 0x0b
+	opcodeStat    = 0x10
 )
 
 type bRequest struct {
@@ -141,7 +143,7 @@ func (res bResponse) Bytes() []byte {
 	extraLenByte := byte(extraLen)
 
 	bodyLenBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(bodyLenBytes, uint32(extraLen+valueLen))
+	binary.BigEndian.PutUint32(bodyLenBytes, uint32(extraLen+keyLen+valueLen))
 
 	data := make([]byte, totalLen)
 	data[0] = res.magic
@@ -252,6 +254,11 @@ func (app *App) BytesToBinaryCmd(req bRequest) (cmd MemdCmd, err error) {
 		cmd = &MemdBCmdVersion{
 			Opaque: req.opaque,
 		}
+	case opcodeStat:
+		cmd = &MemdBCmdStat{
+			Key:    req.key,
+			Opaque: req.opaque,
+		}
 	default:
 		err = fmt.Errorf("unknown binary command: %x", req.opcode)
 	}
@@ -300,5 +307,52 @@ func (cmd MemdBCmdVersion) Execute(app *App, w io.Writer) error {
 	})
 
 	_, err := w.Write(res.Bytes())
+	return err
+}
+
+// MemdCmdStat defines binary Stat command.
+type MemdBCmdStat struct {
+	Key    string
+	Opaque [4]byte
+}
+
+// Execute writes binary stat
+// ref. https://github.com/memcached/memcached/wiki/BinaryProtocolRevamped#stat
+func (cmd *MemdBCmdStat) Execute(app *App, w io.Writer) error {
+	// ignore optional key (items, slabs) for now
+	s := app.GetStats()
+	return s.writeBinaryTo(w, cmd.Opaque)
+}
+
+func (s MemdStats) writeBinaryTo(w io.Writer, opaque [4]byte) error {
+	statsValue := reflect.ValueOf(s)
+	statsType := reflect.TypeOf(s)
+	for i := 0; i < statsType.NumField(); i++ {
+		field := statsType.Field(i)
+		tag := field.Tag.Get("memd")
+		if tag == "" {
+			continue
+		}
+		var val string
+		v := statsValue.FieldByIndex(field.Index).Interface()
+		switch _v := v.(type) {
+		case int:
+			val = strconv.Itoa(_v)
+		case int64:
+			val = strconv.FormatInt(int64(_v), 10)
+		case string:
+			val = string(_v)
+		}
+		res := newBResponse(opcodeStat, opaque, bResponseConfig{
+			key:   tag,
+			value: val,
+		})
+		if _, err := w.Write(res.Bytes()); err != nil {
+			return err
+		}
+	}
+	// to teminate the sequence
+	emptyRes := newBResponse(opcodeStat, opaque, bResponseConfig{})
+	_, err := w.Write(emptyRes.Bytes())
 	return err
 }

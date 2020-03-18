@@ -72,6 +72,8 @@ VALUE(s) are unique IDs.
 
 Returns a stats of katsubushi.
 
+Binary protocol is also available.
+
 ```
 STAT pid 8018
 STAT uptime 17
