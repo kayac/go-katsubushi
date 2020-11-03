@@ -31,7 +31,7 @@ func (c *Client) SetTimeout(t time.Duration) {
 	}
 }
 
-// Fetch fetches id from katubushi
+// Fetch fetches id from katsubushi
 func (c *Client) Fetch() (uint64, error) {
 	errs := errors.New("no servers available")
 	for _, mc := range c.memcacheClients {
@@ -50,7 +50,7 @@ func (c *Client) Fetch() (uint64, error) {
 	return 0, errs
 }
 
-// FetchMulti fetches multiple ids from katubushi
+// FetchMulti fetches multiple ids from katsubushi
 func (c *Client) FetchMulti(n int) ([]uint64, error) {
 	keys := make([]string, 0, n)
 
