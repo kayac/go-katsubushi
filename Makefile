@@ -24,7 +24,7 @@ packages:
 		goxz -pv="v${GIT_VER}" \
 			-build-ldflags="-s -w -X github.com/kayac/go-katsubushi.Version=${GIT_VER}" \
 			-os=darwin,linux \
-			-arch=amd64 \
+			-arch=amd64,arm64 \
 			-d=dist \
 			./cmd/katsubushi
 
@@ -32,9 +32,12 @@ release:
 	ghr -u kayac -r go-katsubushi -n "v${GIT_VER}" ${GIT_VER} dist/
 
 docker: clean packages
-	cd dist && tar xvf go-katsubushi_v${GIT_VER}_linux_amd64.tar.gz
-	docker build \
+	cd dist && \
+		tar xvf go-katsubushi_v${GIT_VER}_linux_amd64.tar.gz && \
+		tar xvf go-katsubushi_v${GIT_VER}_linux_arm64.tar.gz
+	docker buildx build \
 		--build-arg VERSION=v${GIT_VER} \
+		--platform linux/amd64,linux/arm64 \
 		-f docker/Dockerfile \
 		-t katsubushi/katsubushi:v${GIT_VER} \
 		.
