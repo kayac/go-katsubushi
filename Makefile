@@ -40,7 +40,9 @@ docker: clean packages
 		--platform linux/amd64,linux/arm64 \
 		-f docker/Dockerfile \
 		-t katsubushi/katsubushi:v${GIT_VER} \
+		-t ghcr.io/kayac/go-katsubushi:v${GIT_VER} \
 		.
 
 docker-push: docker
-    docker push katsubushi/katsubushi:v${GIT_VER}
+	docker push katsubushi/katsubushi:v${GIT_VER}
+	docker push ghcr.io/kayac/go-katsubushi:v${GIT_VER}

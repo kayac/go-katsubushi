@@ -10,7 +10,8 @@ require (
 	github.com/fujiwara/raus v0.0.2
 	github.com/fukata/golang-stats-api-handler v1.0.0
 	github.com/kr/pretty v0.3.0 // indirect
-	github.com/onsi/gomega v1.16.0 // indirect
+	github.com/onsi/ginkgo v1.16.5 // indirect
+	github.com/onsi/gomega v1.17.0 // indirect
 	github.com/pkg/errors v0.8.0
 	github.com/satori/go.uuid v1.1.0 // indirect
 	github.com/soh335/go-test-redisserver v0.1.0 // indirect
@@ -18,8 +19,6 @@ require (
 	go.uber.org/atomic v1.3.1 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.7.1
-	golang.org/x/net v0.0.0-20210916014120-12bc252f5db8 // indirect
+	golang.org/x/net v0.0.0-20220114011407-0dd24b26b47d // indirect
 	gopkg.in/redis.v5 v5.2.9 // indirect
 )
-
-require github.com/onsi/ginkgo v1.16.4 // indirect
