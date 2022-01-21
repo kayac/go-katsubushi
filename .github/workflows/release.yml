@@ -47,7 +47,8 @@ jobs:
       - name: Docker Login
         uses: azure/docker-login@v1
         with:
-          username: ${{ env.GITHUB_ACTOR }}
+          login-server: ghcr.io
+          username: $GITHUB_ACTOR
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: docker
