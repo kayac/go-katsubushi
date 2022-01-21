@@ -1,6 +1,6 @@
 module github.com/kayac/go-katsubushi
 
-go 1.12
+go 1.17
 
 require (
 	github.com/Songmu/retry v0.0.1
