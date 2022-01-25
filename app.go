@@ -8,6 +8,7 @@ import (
 	stdlog "log"
 	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -152,7 +153,8 @@ type ListenFunc func(context.Context, string) error
 
 // ListenSock starts listen Unix Domain Socket on sockpath.
 func (app *App) ListenSock(ctx context.Context, sockpath string) error {
-	l, err := net.Listen("unix", sockpath)
+	// NOTE: gomemcache expect filepath contains slashes.
+	l, err := net.Listen("unix", filepath.ToSlash(sockpath))
 	if err != nil {
 		return err
 	}
