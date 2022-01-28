@@ -29,7 +29,7 @@ packages:
 			./cmd/katsubushi
 
 release:
-	ghr -u kayac -r go-katsubushi -n "v${GIT_VER}" ${GIT_VER} dist/
+	ghr -prerelease -u kayac -r go-katsubushi -n "v${GIT_VER}" ${GIT_VER} dist/
 
 docker: clean packages
 	cd dist && \
@@ -44,5 +44,11 @@ docker: clean packages
 		.
 
 docker-push: docker
-	docker push katsubushi/katsubushi:v${GIT_VER}
-	docker push ghcr.io/kayac/go-katsubushi:v${GIT_VER}
+	docker buildx build \
+		--build-arg VERSION=v${GIT_VER} \
+		--platform linux/amd64,linux/arm64 \
+		-f docker/Dockerfile \
+		-t katsubushi/katsubushi:v${GIT_VER} \
+		-t ghcr.io/kayac/go-katsubushi:v${GIT_VER} \
+		--push \
+		.
