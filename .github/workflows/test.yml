@@ -4,12 +4,13 @@ jobs:
   test:
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         go:
           - 1.16
           - 1.17
           - 1.18.0-beta1
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Set up Go
         uses: actions/setup-go@v2
