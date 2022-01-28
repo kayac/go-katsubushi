@@ -9,8 +9,7 @@ import (
 var nextWorkerID uint32
 
 func getNextWorkerID() uint {
-	atomic.AddUint32(&nextWorkerID, 1)
-	return uint(nextWorkerID)
+	return uint(atomic.AddUint32(&nextWorkerID, 1))
 }
 
 func TestInvalidWorkerID(t *testing.T) {
