@@ -27,7 +27,9 @@ make
 
 ## Docker image
 
-https://hub.docker.com/r/katsubushi/katsubushi/
+- [katsubushi/katsubushi](https://hub.docker.com/r/katsubushi/katsubushi/)
+- [ghcr.io/kayac/go-katsubushi](https://github.com/kayac/go-katsubushi/pkgs/container/go-katsubushi)
+
 
 ```
 $ docker pull katsubushi/katsubushi
