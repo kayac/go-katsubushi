@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/fujiwara/raus"
-	"github.com/fukata/golang-stats-api-handler"
+	stats_api "github.com/fukata/golang-stats-api-handler"
 	"github.com/kayac/go-katsubushi"
 )
 
@@ -37,6 +37,7 @@ type katsubushiConfig struct {
 	idleTimeout int
 	logLevel    string
 	sockpath    string
+	httpPort    int
 }
 
 var log *stdlog.Logger
@@ -60,6 +61,7 @@ func main() {
 	flag.StringVar(&kc.sockpath, "sock", "", "unix domain socket to listen. ignore port option when set this.")
 	flag.IntVar(&kc.idleTimeout, "idle-timeout", int(katsubushi.DefaultIdleTimeout/time.Second), "connection will be closed if there are no packets over the seconds. 0 means infinite.")
 	flag.StringVar(&kc.logLevel, "log-level", "info", "log level (panic, fatal, error, warn, info = Default, debug)")
+	flag.IntVar(&kc.httpPort, "http-port", 0, "port to listen http server. 0 means disable.")
 
 	flag.BoolVar(&pc.enablePprof, "enable-pprof", false, "")
 	flag.BoolVar(&pc.enableStats, "enable-stats", false, "")
@@ -111,13 +113,22 @@ func main() {
 	}
 
 	// main listener
-	fn, addr, err := newKatsubushiListenFunc(kc)
+	app, fn, addr, err := newKatsubushiListenFunc(kc)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	wg.Add(1)
 	go mainListener(ctx, &wg, fn, addr)
+
+	// http server
+	if kc.httpPort != 0 {
+		wg.Add(1)
+		if err := app.RunHTTPServer(ctx, &wg, kc.httpPort); err != nil {
+			fmt.Println(err)
+			cancel()
+		}
+	}
 
 	wg.Wait()
 	log.Println("Shutdown completed")
@@ -131,7 +142,7 @@ func mainListener(ctx context.Context, wg *sync.WaitGroup, fn katsubushi.ListenF
 	}
 }
 
-func newKatsubushiListenFunc(kc *katsubushiConfig) (katsubushi.ListenFunc, string, error) {
+func newKatsubushiListenFunc(kc *katsubushiConfig) (*katsubushi.App, katsubushi.ListenFunc, string, error) {
 	var timeout time.Duration
 	if kc.idleTimeout == 0 {
 		timeout = katsubushi.InfiniteIdleTimeout
@@ -144,12 +155,12 @@ func newKatsubushiListenFunc(kc *katsubushiConfig) (katsubushi.ListenFunc, strin
 		IdleTimeout: &timeout,
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 	if kc.sockpath != "" {
-		return app.ListenSock, kc.sockpath, nil
+		return app, app.ListenSock, kc.sockpath, nil
 	} else {
-		return app.ListenTCP, fmt.Sprintf(":%d", kc.port), nil
+		return app, app.ListenTCP, fmt.Sprintf(":%d", kc.port), nil
 	}
 }
 
