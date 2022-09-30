@@ -18,8 +18,8 @@ func (app *App) RunHTTPServer(ctx context.Context, wg *sync.WaitGroup, port int)
 	defer wg.Done()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/id", app.httpGetSingleID)
-	mux.HandleFunc("/ids", app.httpGetMultiID)
+	mux.HandleFunc("/id", app.HTTPGetSingleID)
+	mux.HandleFunc("/ids", app.HTTPGetMultiID)
 	log.Infof("Listening HTTP server at :%d", port)
 	s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
@@ -34,7 +34,7 @@ func (app *App) RunHTTPServer(ctx context.Context, wg *sync.WaitGroup, port int)
 	return s.ListenAndServe()
 }
 
-func (app *App) httpGetSingleID(w http.ResponseWriter, req *http.Request) {
+func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -54,7 +54,7 @@ func (app *App) httpGetSingleID(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (app *App) httpGetMultiID(w http.ResponseWriter, req *http.Request) {
+func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
