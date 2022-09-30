@@ -116,7 +116,7 @@ When `Accept` HTTP header is 'application/json', katsubushi will return an ID as
 {"id":"1025441401866821632"}
 ```
 
-Otherwise, katsubushi will return ID as test format.
+Otherwise, katsubushi will return ID as text format.
 
 ```
 1025441401866821632
@@ -132,7 +132,7 @@ When `Accept` HTTP header is 'application/json', katsubushi will return an IDs a
 {"ids":["1025442579472195584","1025442579472195585","1025442579472195586"]}
 ```
 
-Otherwise, katsubushi will return ID as test format delimiterd with "\n".
+Otherwise, katsubushi will return ID as text format delimiterd with "\n".
 
 ```
 1025442579472195584
