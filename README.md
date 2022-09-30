@@ -102,6 +102,44 @@ VERSION 1.1.2
 
 Disconnect an established connection.
 
+## Protocol (HTTP)
+
+katsubushi also runs an HTTP server specified with `-http-port`.
+
+### GET /id
+
+Get a single ID.
+
+When `Accept` HTTP header is 'application/json', katsubushi will return an ID as JSON format as below.
+
+```json
+{"id":"1025441401866821632"}
+```
+
+Otherwise, katsubushi will return ID as test format.
+
+```
+1025441401866821632
+```
+
+### GET /ids?n=(number_of_ids)
+
+Get multiple IDs.
+
+When `Accept` HTTP header is 'application/json', katsubushi will return an IDs as JSON format as below.
+
+```json
+{"ids":["1025442579472195584","1025442579472195585","1025442579472195586"]}
+```
+
+Otherwise, katsubushi will return ID as test format delimiterd with "\n".
+
+```
+1025442579472195584
+1025442579472195585
+1025442579472195586
+```
+
 ## Algorithm
 
 katsubushi use algorithm like snowflake to generate ID.
