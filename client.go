@@ -8,6 +8,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// DefaultClientTimeout is default timeout for katsubushi client
+var DefaultClientTimeout = 5 * time.Second
+
 // Client is katsubushi client
 type Client struct {
 	memcacheClients []*memcacheClient
@@ -21,6 +24,7 @@ func NewClient(addrs ...string) *Client {
 	for _, addr := range addrs {
 		c.memcacheClients = append(c.memcacheClients, newMemcacheClient(addr))
 	}
+	c.SetTimeout(DefaultClientTimeout)
 	return c
 }
 

@@ -2,16 +2,21 @@ package katsubushi_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net"
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/kayac/go-katsubushi"
 )
 
 var httpApp *katsubushi.App
+var httpPort int
 
 func init() {
 	var err error
@@ -19,6 +24,13 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		panic(err)
+	}
+	httpPort = listener.Addr().(*net.TCPAddr).Port
+	go httpApp.RunHTTPServer(context.Background(), &katsubushi.Config{HTTPListener: listener})
+	time.Sleep(3 * time.Second)
 }
 
 func TestHTTPSingle(t *testing.T) {
@@ -150,4 +162,63 @@ func TestHTTPStats(t *testing.T) {
 	if s3.GetHits != s2.GetHits+10 {
 		t.Errorf("get_hits should be incremented by 10 but %d", s3.GetHits-s2.GetHits)
 	}
+}
+
+func TestHTTPSingleCS(t *testing.T) {
+	u := fmt.Sprintf("http://localhost:%d", httpPort)
+	client, err := katsubushi.NewHTTPClient([]string{u}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		id, err := client.Fetch()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if id == 0 {
+			t.Fatal("id should not be 0")
+		}
+		t.Logf("HTTP fetched single ID: %d", id)
+	}
+}
+
+func TestHTTPMultiCS(t *testing.T) {
+	u := fmt.Sprintf("http://localhost:%d", httpPort)
+	client, err := katsubushi.NewHTTPClient([]string{u}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		ids, err := client.FetchMulti(10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(ids) != 10 {
+			t.Fatalf("ids should contain 10 elements %v", ids)
+		}
+		for _, id := range ids {
+			if id == 0 {
+				t.Fatal("id should not be 0")
+			}
+		}
+		t.Logf("HTTP fetched IDs: %v", ids)
+	}
+}
+
+func BenchmarkHTTPClientFetch(b *testing.B) {
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		u := fmt.Sprintf("http://localhost:%d", httpPort)
+		c, _ := katsubushi.NewHTTPClient([]string{u}, "")
+		for pb.Next() {
+			id, err := c.Fetch()
+			if err != nil {
+				b.Fatal(err)
+			}
+			if id == 0 {
+				b.Error("could not fetch id > 0")
+			}
+		}
+	})
 }

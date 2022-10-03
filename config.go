@@ -1,5 +1,7 @@
 package katsubushi
 
+import "net"
+
 type Config struct {
 	WorkerID    uint
 	Port        int
@@ -9,4 +11,5 @@ type Config struct {
 
 	HTTPPort       int
 	HTTPPathPrefix string
+	HTTPListener   net.Listener
 }

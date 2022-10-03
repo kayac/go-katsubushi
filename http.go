@@ -1,14 +1,21 @@
 package katsubushi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -20,9 +27,7 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 	mux.HandleFunc(fmt.Sprintf("/%sid", cfg.HTTPPathPrefix), app.HTTPGetSingleID)
 	mux.HandleFunc(fmt.Sprintf("/%sids", cfg.HTTPPathPrefix), app.HTTPGetMultiID)
 	mux.HandleFunc(fmt.Sprintf("/%sstats", cfg.HTTPPathPrefix), app.HTTPGetStats)
-	log.Infof("Listening HTTP server at :%d", cfg.HTTPPort)
 	s := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.HTTPPort),
 		Handler: mux,
 		ConnState: func(conn net.Conn, state http.ConnState) {
 			switch state {
@@ -42,7 +47,15 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 		log.Infof("Shutting down HTTP server")
 		s.Shutdown(ctx)
 	}()
-	return s.ListenAndServe()
+
+	if cfg.HTTPListener != nil {
+		log.Infof("Listening HTTP server at %s", cfg.HTTPListener.Addr())
+		return s.Serve(cfg.HTTPListener)
+	} else {
+		s.Addr = fmt.Sprintf(":%d", cfg.HTTPPort)
+		log.Infof("Listening HTTP server at :%d", cfg.HTTPPort)
+		return s.ListenAndServe()
+	}
 }
 
 func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
@@ -128,4 +141,126 @@ func (app *App) HTTPGetStats(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+type HTTPClient struct {
+	client     *http.Client
+	urls       []*url.URL
+	pathPrefix string
+	pool       *sync.Pool
+}
+
+// NewHTTPClient creates HTTPClient
+func NewHTTPClient(urls []string, pathPrefix string) (*HTTPClient, error) {
+	c := &HTTPClient{
+		client: &http.Client{
+			Timeout: DefaultClientTimeout,
+		},
+		pool: &sync.Pool{
+			New: func() interface{} {
+				return new(bytes.Buffer)
+			},
+		},
+	}
+	for _, _u := range urls {
+		u, err := url.Parse(_u)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse URL: %s", _u)
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return nil, errors.Errorf("invalid URL scheme: %s", u.Scheme)
+		}
+		c.urls = append(c.urls, u)
+	}
+	return c, nil
+}
+
+// SetTimeout sets timeout to katsubushi servers
+func (c *HTTPClient) SetTimeout(t time.Duration) {
+	c.client.Timeout = t
+}
+
+// Fetch fetches id from katsubushi via HTTP
+func (c *HTTPClient) Fetch() (uint64, error) {
+	errs := errors.New("no servers available")
+	for _, u := range c.urls {
+		id, err := func(u *url.URL) (uint64, error) {
+			u.Path = fmt.Sprintf("/%sid", c.pathPrefix)
+			req, _ := http.NewRequest("GET", u.String(), nil)
+			resp, err := c.client.Do(req)
+			if err != nil {
+				return 0, err
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				return 0, errors.Errorf("unexpected status code: %d", resp.StatusCode)
+			}
+			b := c.pool.Get().(*bytes.Buffer)
+			defer func() {
+				b.Reset()
+				c.pool.Put(b)
+			}()
+			if _, err := io.Copy(b, resp.Body); err != nil {
+				return 0, err
+			}
+			if id, err := strconv.ParseUint(b.String(), 10, 64); err != nil {
+				return 0, err
+			} else {
+				return id, nil
+			}
+		}(u)
+		if err != nil {
+			errs = errors.Wrapf(err, "failed to fetch id from %s", u)
+		}
+		return id, nil
+	}
+	return 0, errs
+}
+
+// FetchMulti fetches multiple ids from katsubushi via HTTP
+func (c *HTTPClient) FetchMulti(n int) ([]uint64, error) {
+	errs := errors.New("no servers available")
+	ids := make([]uint64, 0, n)
+	for _, u := range c.urls {
+		ids, err := func(u *url.URL) ([]uint64, error) {
+			u.Path = fmt.Sprintf("/%sids", c.pathPrefix)
+			u.RawQuery = fmt.Sprintf("n=%d", n)
+			req, _ := http.NewRequest("GET", u.String(), nil)
+			resp, err := c.client.Do(req)
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				return nil, errors.Errorf("unexpected status code: %d", resp.StatusCode)
+			}
+
+			b := c.pool.Get().(*bytes.Buffer)
+			defer func() {
+				b.Reset()
+				c.pool.Put(b)
+			}()
+			if _, err := io.Copy(b, resp.Body); err != nil {
+				return nil, err
+
+			}
+			bs := bytes.Split(b.Bytes(), []byte("\n"))
+			if len(bs) != n {
+				return nil, err
+			}
+			for _, b := range bs {
+				if id, err := strconv.ParseUint(string(b), 10, 64); err != nil {
+					return nil, err
+				} else {
+					ids = append(ids, id)
+				}
+			}
+			return ids, nil
+		}(u)
+		if err != nil {
+			errs = errors.Wrapf(errs, "failed to fetch ids from %s", u)
+		}
+		return ids, nil
+	}
+	return nil, errs
 }
