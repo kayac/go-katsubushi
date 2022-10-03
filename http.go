@@ -7,22 +7,21 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 )
 
 const (
 	MaxHTTPBulkSize = 1000
 )
 
-func (app *App) RunHTTPServer(ctx context.Context, wg *sync.WaitGroup, port int) error {
-	defer wg.Done()
-
+func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/id", app.HTTPGetSingleID)
-	mux.HandleFunc("/ids", app.HTTPGetMultiID)
-	log.Infof("Listening HTTP server at :%d", port)
+	mux.HandleFunc(fmt.Sprintf("/%sid", cfg.HTTPPathPrefix), app.HTTPGetSingleID)
+	mux.HandleFunc(fmt.Sprintf("/%sids", cfg.HTTPPathPrefix), app.HTTPGetMultiID)
+	mux.HandleFunc(fmt.Sprintf("/%sstats", cfg.HTTPPathPrefix), app.HTTPGetStats)
+	log.Infof("Listening HTTP server at :%d", cfg.HTTPPort)
 	s := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
+		Addr:    fmt.Sprintf(":%d", cfg.HTTPPort),
 		Handler: mux,
 	}
 	// shutdown
@@ -39,6 +38,7 @@ func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	atomic.AddInt64(&app.cmdGet, 1)
 	id, err := app.NextID()
 	if err != nil {
 		log.Error(err)
@@ -59,6 +59,7 @@ func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	atomic.AddInt64(&app.cmdGet, 1)
 	var n int64
 	if ns := req.FormValue("n"); ns == "" {
 		n = 1
@@ -96,5 +97,21 @@ func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 	} else {
 		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprint(w, strings.Join(ids, "\n"))
+	}
+}
+
+func (app *App) HTTPGetStats(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	s := app.GetStats()
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(s); err != nil {
+		log.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 }
