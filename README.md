@@ -140,6 +140,26 @@ Otherwise, katsubushi will return ID as text format delimiterd with "\n".
 1025442579472195586
 ```
 
+### GET /stats
+
+Returns a stats of katsubushi.
+
+This API returns a JSON always.
+
+```json
+{
+  "pid": 1859630,
+  "uptime": 50,
+  "time": 1664761614,
+  "version": "1.8.0",
+  "curr_connections": 1,
+  "total_connections": 5,
+  "cmd_get": 15,
+  "get_hits": 25,
+  "get_misses": 0
+}
+```
+
 ## Algorithm
 
 katsubushi use algorithm like snowflake to generate ID.
