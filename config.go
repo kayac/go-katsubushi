@@ -12,4 +12,7 @@ type Config struct {
 	HTTPPort       int
 	HTTPPathPrefix string
 	HTTPListener   net.Listener
+
+	GRPCPort     int
+	GRPCListener net.Listener
 }

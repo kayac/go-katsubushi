@@ -1,0 +1,22 @@
+syntax = "proto3";
+package katsubushi;
+option go_package = "katsubushi/grpc";
+
+service Generator {
+  rpc Fetch (FetchRequest) returns (FetchResponse) {}
+  rpc FetchMulti (FetchMultiRequest) returns (FetchMultiResponse) {}
+}
+
+message FetchRequest {}
+
+message FetchMultiRequest {
+	uint32 n = 1;
+}
+
+message FetchResponse {
+	uint64 id = 1;
+}
+
+message FetchMultiResponse {
+	repeated uint64 ids = 1;
+}

@@ -53,6 +53,7 @@ func main() {
 	flag.IntVar(&kc.IdleTimeout, "idle-timeout", int(katsubushi.DefaultIdleTimeout/time.Second), "connection will be closed if there are no packets over the seconds. 0 means infinite.")
 	flag.StringVar(&kc.LogLevel, "log-level", "info", "log level (panic, fatal, error, warn, info = Default, debug)")
 	flag.IntVar(&kc.HTTPPort, "http-port", 0, "port to listen http server. 0 means disable.")
+	flag.IntVar(&kc.GRPCPort, "grpc-port", 0, "port to listen grpc server. 0 means disable.")
 
 	flag.BoolVar(&pc.enablePprof, "enable-pprof", false, "")
 	flag.BoolVar(&pc.enableStats, "enable-stats", false, "")
@@ -118,6 +119,17 @@ func main() {
 		go func() {
 			defer wg.Done()
 			if err := app.RunHTTPServer(ctx, kc); err != nil {
+				fmt.Println(err)
+				cancel()
+			}
+		}()
+	}
+
+	if kc.GRPCPort != 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := app.RunGRPCServer(ctx, kc); err != nil {
 				fmt.Println(err)
 				cancel()
 			}
