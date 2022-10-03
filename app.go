@@ -431,15 +431,15 @@ type MemdValue struct {
 
 // MemdStats defines result of STATS command.
 type MemdStats struct {
-	Pid              int    `memd:"pid"`
-	Uptime           int64  `memd:"uptime"`
-	Time             int64  `memd:"time"`
-	Version          string `memd:"version"`
-	CurrConnections  int64  `memd:"curr_connections"`
-	TotalConnections int64  `memd:"total_connections"`
-	CmdGet           int64  `memd:"cmd_get"`
-	GetHits          int64  `memd:"get_hits"`
-	GetMisses        int64  `memd:"get_misses"`
+	Pid              int    `memd:"pid" json:"pid"`
+	Uptime           int64  `memd:"uptime" json:"uptime"`
+	Time             int64  `memd:"time" json:"time"`
+	Version          string `memd:"version" json:"version"`
+	CurrConnections  int64  `memd:"curr_connections" json:"curr_connections"`
+	TotalConnections int64  `memd:"total_connections" json:"total_connections"`
+	CmdGet           int64  `memd:"cmd_get" json:"cmd_get"`
+	GetHits          int64  `memd:"get_hits" json:"get_hits"`
+	GetMisses        int64  `memd:"get_misses" json:"get_misses"`
 }
 
 // WriteTo writes content of MemdValue to io.Writer.
