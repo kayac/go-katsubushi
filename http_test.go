@@ -113,7 +113,7 @@ func TestHTTPMultiJSON(t *testing.T) {
 	}
 }
 
-func testHTTPStats(t *testing.T) (int64, int64) {
+func testHTTPStats(t *testing.T) *katsubushi.MemdStats {
 	req := httptest.NewRequest("GET", "/stats", nil)
 	req.Header.Set("Accept", "application/json")
 	w := httptest.NewRecorder()
@@ -126,28 +126,28 @@ func testHTTPStats(t *testing.T) (int64, int64) {
 		t.Errorf("failed to read body: %v", err)
 	}
 	t.Logf("%#v", s)
-	return s.CmdGet, s.GetHits
+	return &s
 }
 
 func TestHTTPStats(t *testing.T) {
 	TestHTTPSingle(t)
-	cmdGet1, getHits1 := testHTTPStats(t)
+	s1 := testHTTPStats(t)
 
 	TestHTTPSingle(t)
-	cmdGet2, getHits2 := testHTTPStats(t)
-	if cmdGet2 != cmdGet1+1 {
-		t.Errorf("cmd_get should be incremented by 1 but %d", cmdGet2-cmdGet1)
+	s2 := testHTTPStats(t)
+	if s2.CmdGet != s1.CmdGet+1 {
+		t.Errorf("cmd_get should be incremented by 1 but %d", s2.CmdGet-s1.CmdGet)
 	}
-	if getHits2 != getHits1+1 {
-		t.Errorf("get_hits should be incremented by 1 but %d", getHits2-getHits1)
+	if s2.GetHits != s1.GetHits+1 {
+		t.Errorf("get_hits should be incremented by 1 but %d", s2.GetHits-s1.GetHits)
 	}
 
 	TestHTTPMulti(t)
-	cmdGet3, getHits3 := testHTTPStats(t)
-	if cmdGet3 != cmdGet2+1 {
-		t.Errorf("cmd_get should be incremented by 10 but %d", cmdGet3-cmdGet2)
+	s3 := testHTTPStats(t)
+	if s3.CmdGet != s2.CmdGet+1 {
+		t.Errorf("cmd_get should be incremented by 10 but %d", s3.CmdGet-s2.CmdGet)
 	}
-	if getHits3 != getHits2+10 {
-		t.Errorf("get_hits should be incremented by 10 but %d", getHits3-getHits2)
+	if s3.GetHits != s2.GetHits+10 {
+		t.Errorf("get_hits should be incremented by 10 but %d", s3.GetHits-s2.GetHits)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -23,6 +24,17 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 	s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.HTTPPort),
 		Handler: mux,
+		ConnState: func(conn net.Conn, state http.ConnState) {
+			switch state {
+			case http.StateNew:
+				log.Debugf("Connected HTTP from %s", conn.RemoteAddr())
+				atomic.AddInt64(&app.totalConnections, 1)
+				atomic.AddInt64(&app.currConnections, 1)
+			case http.StateClosed:
+				log.Debugf("Closed HTTP %s", conn.RemoteAddr())
+				atomic.AddInt64(&app.currConnections, -1)
+			}
+		},
 	}
 	// shutdown
 	go func() {
@@ -45,6 +57,7 @@ func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	log.Debugf("Generated ID: %d", id)
 	if strings.Contains(req.Header.Get("Accept"), "application/json") {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"id":"%d"}`, id)
@@ -89,6 +102,7 @@ func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 		}
 		ids = append(ids, strconv.FormatUint(id, 10))
 	}
+	log.Debugf("Generated IDs: %v", ids)
 	if strings.Contains(req.Header.Get("Accept"), "application/json") {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct {
