@@ -19,7 +19,7 @@ var grpcPort int
 
 func init() {
 	var err error
-	grpcApp, err = katsubushi.NewApp(katsubushi.Option{WorkerID: 88})
+	grpcApp, err = katsubushi.New(88)
 	if err != nil {
 		panic(err)
 	}

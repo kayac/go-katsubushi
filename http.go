@@ -29,17 +29,6 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 	mux.HandleFunc(fmt.Sprintf("/%sstats", cfg.HTTPPathPrefix), app.HTTPGetStats)
 	s := &http.Server{
 		Handler: mux,
-		ConnState: func(conn net.Conn, state http.ConnState) {
-			switch state {
-			case http.StateNew:
-				log.Debugf("Connected HTTP from %s", conn.RemoteAddr())
-				atomic.AddInt64(&app.totalConnections, 1)
-				atomic.AddInt64(&app.currConnections, 1)
-			case http.StateClosed:
-				log.Debugf("Closed HTTP %s", conn.RemoteAddr())
-				atomic.AddInt64(&app.currConnections, -1)
-			}
-		},
 	}
 	// shutdown
 	go func() {
@@ -48,14 +37,17 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 		s.Shutdown(ctx)
 	}()
 
-	if cfg.HTTPListener != nil {
-		log.Infof("Listening HTTP server at %s", cfg.HTTPListener.Addr())
-		return s.Serve(cfg.HTTPListener)
-	} else {
-		s.Addr = fmt.Sprintf(":%d", cfg.HTTPPort)
-		log.Infof("Listening HTTP server at :%d", cfg.HTTPPort)
-		return s.ListenAndServe()
+	listener := cfg.HTTPListener
+	if listener == nil {
+		var err error
+		listener, err = net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
+		if err != nil {
+			return errors.Wrap(err, "failed to listen")
+		}
 	}
+	listener = app.wrapListener(listener)
+	log.Infof("Listening HTTP server at %s", listener.Addr())
+	return s.Serve(listener)
 }
 
 func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
