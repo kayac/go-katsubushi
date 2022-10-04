@@ -40,14 +40,14 @@ type delayedGenerator struct {
 	delay    time.Duration
 }
 
-func newDelayedGenerator(opt Option, delay time.Duration) (*delayedGenerator, error) {
-	g, err := NewGenerator(opt.WorkerID)
+func newDelayedGenerator(workerID uint, delay time.Duration) (*delayedGenerator, error) {
+	g, err := NewGenerator(workerID)
 	if err != nil {
 		return nil, err
 	}
 	return &delayedGenerator{
 		gen:      g,
-		workerID: opt.WorkerID,
+		workerID: workerID,
 		delay:    delay,
 	}, nil
 }
@@ -62,10 +62,7 @@ func (g *delayedGenerator) WorkerID() uint {
 }
 
 func newTestApp(t testing.TB, timeout *time.Duration) *App {
-	app, err := NewApp(Option{
-		WorkerID:    getNextWorkerID(),
-		IdleTimeout: timeout,
-	})
+	app, err := New(getNextWorkerID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,14 +70,12 @@ func newTestApp(t testing.TB, timeout *time.Duration) *App {
 }
 
 func newTestAppDelayed(t testing.TB, delay time.Duration) *App {
-	opt := Option{
-		WorkerID: getNextWorkerID(),
-	}
-	gen, err := newDelayedGenerator(opt, delay)
+	workerID := getNextWorkerID()
+	gen, err := newDelayedGenerator(workerID, delay)
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := NewAppWithGenerator(gen, opt)
+	app, err := NewAppWithGenerator(gen, workerID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +85,11 @@ func newTestAppDelayed(t testing.TB, delay time.Duration) *App {
 func newTestAppAndListenTCP(ctx context.Context, t testing.TB, timeout *time.Duration) *App {
 	app := newTestApp(t, timeout)
 
-	go app.ListenTCP(ctx, "localhost:0")
+	l, _ := app.ListenerTCP("localhost:0")
+	if timeout != nil {
+		app.idleTimeout = *timeout
+	}
+	go app.Serve(ctx, l)
 	<-app.Ready()
 
 	return app
@@ -101,7 +100,8 @@ func newTestAppAndListenSock(ctx context.Context, t testing.TB) (*App, string) {
 
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
 
-	go app.ListenSock(ctx, filepath.Join(tmpDir, "katsubushi.sock"))
+	l, _ := app.ListenerSock(filepath.Join(tmpDir, "katsubushi.sock"))
+	go app.Serve(ctx, l)
 	<-app.Ready()
 
 	return app, tmpDir
@@ -238,11 +238,9 @@ func TestAppIdleTimeout(t *testing.T) {
 }
 
 func BenchmarkApp(b *testing.B) {
-	app, _ := NewApp(Option{
-		WorkerID:    getNextWorkerID(),
-		IdleTimeout: nil,
-	})
-	go app.ListenTCP(context.Background(), ":0")
+	app, _ := New(getNextWorkerID())
+	l, _ := app.ListenerTCP(":0")
+	go app.Serve(context.Background(), l)
 	<-app.Ready()
 
 	errorPattern := regexp.MustCompile(`ERROR`)
@@ -267,17 +265,12 @@ func BenchmarkApp(b *testing.B) {
 }
 
 func BenchmarkAppSock(b *testing.B) {
-	app, _ := NewApp(Option{
-		WorkerID:    getNextWorkerID(),
-		IdleTimeout: nil,
-	})
+	app, _ := New(getNextWorkerID())
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
 	defer os.RemoveAll(tmpDir)
 
-	go app.ListenSock(
-		context.Background(),
-		filepath.Join(tmpDir, "katsubushi.sock"),
-	)
+	l, _ := app.ListenerSock(filepath.Join(tmpDir, "katsubushi.sock"))
+	go app.Serve(context.Background(), l)
 	<-app.Ready()
 
 	errorPattern := regexp.MustCompile(`ERROR`)
@@ -738,8 +731,9 @@ func TestAppBinaryIdleTimeout(t *testing.T) {
 }
 
 func BenchmarkAppBinary(b *testing.B) {
-	app, _ := NewApp(Option{WorkerID: getNextWorkerID(), IdleTimeout: nil})
-	go app.ListenTCP(context.Background(), ":0")
+	app, _ := New(getNextWorkerID())
+	l, _ := app.ListenerTCP(":0")
+	go app.Serve(context.Background(), l)
 	<-app.Ready()
 
 	// GET Hello
@@ -774,14 +768,12 @@ func BenchmarkAppBinary(b *testing.B) {
 }
 
 func BenchmarkAppBinarySock(b *testing.B) {
-	app, _ := NewApp(Option{WorkerID: getNextWorkerID(), IdleTimeout: nil})
+	app, _ := New(getNextWorkerID())
 	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
 	defer os.RemoveAll(tmpDir)
 
-	go app.ListenSock(
-		context.Background(),
-		filepath.Join(tmpDir, "katsubushi.sock"),
-	)
+	l, _ := app.ListenerSock(filepath.Join(tmpDir, "katsubushi.sock"))
+	go app.Serve(context.Background(), l)
 	<-app.Ready()
 
 	// GET Hello

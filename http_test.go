@@ -20,7 +20,7 @@ var httpPort int
 
 func init() {
 	var err error
-	httpApp, err = katsubushi.NewApp(katsubushi.Option{WorkerID: 80})
+	httpApp, err = katsubushi.New(80)
 	if err != nil {
 		panic(err)
 	}

@@ -43,14 +43,15 @@ func main() {
 		redisURL    string
 		minWorkerID uint
 		maxWorkerID uint
+		workerID    uint
 	)
 	pc := &profConfig{}
 	kc := &katsubushi.Config{}
 
-	flag.UintVar(&kc.WorkerID, "worker-id", 0, "worker id. muset be unique.")
+	flag.UintVar(&workerID, "worker-id", 0, "worker id. muset be unique.")
 	flag.IntVar(&kc.Port, "port", 11212, "port to listen.")
 	flag.StringVar(&kc.Sockpath, "sock", "", "unix domain socket to listen. ignore port option when set this.")
-	flag.IntVar(&kc.IdleTimeout, "idle-timeout", int(katsubushi.DefaultIdleTimeout/time.Second), "connection will be closed if there are no packets over the seconds. 0 means infinite.")
+	flag.DurationVar(&kc.IdleTimeout, "idle-timeout", katsubushi.DefaultIdleTimeout, "connection will be closed if there are no packets over the seconds. 0 means infinite.")
 	flag.StringVar(&kc.LogLevel, "log-level", "info", "log level (panic, fatal, error, warn, info = Default, debug)")
 	flag.IntVar(&kc.HTTPPort, "http-port", 0, "port to listen http server. 0 means disable.")
 	flag.IntVar(&kc.GRPCPort, "grpc-port", 0, "port to listen grpc server. 0 means disable.")
@@ -83,14 +84,14 @@ func main() {
 	wg.Add(1)
 	go signalHandler(ctx, cancel, &wg)
 
-	if kc.WorkerID == 0 {
+	if workerID == 0 {
 		if redisURL == "" {
 			fmt.Println("please set -worker-id or -redis")
 			os.Exit(1)
 		}
 		var err error
 		wg.Add(1)
-		kc.WorkerID, err = assignWorkerID(ctx, &wg, redisURL, minWorkerID, maxWorkerID)
+		workerID, err = assignWorkerID(ctx, &wg, redisURL, minWorkerID, maxWorkerID)
 		if err != nil {
 			log.Println(err)
 			os.Exit(1)
@@ -104,14 +105,22 @@ func main() {
 		go profiler(ctx, cancel, &wg, pc)
 	}
 
-	// main listener
-	app, fn, addr, err := katsubushi.NewListenerFunc(kc)
+	app, err := katsubushi.New(workerID)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
+
+	// main server
+	var errs []error
 	wg.Add(1)
-	go mainListener(ctx, &wg, fn, addr)
+	go func() {
+		defer wg.Done()
+		if err := app.RunServer(ctx, kc); err != nil {
+			errs = append(errs, err)
+			cancel()
+		}
+	}()
 
 	// http server
 	if kc.HTTPPort != 0 {
@@ -119,7 +128,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			if err := app.RunHTTPServer(ctx, kc); err != nil {
-				fmt.Println(err)
+				errs = append(errs, err)
 				cancel()
 			}
 		}()
@@ -130,22 +139,25 @@ func main() {
 		go func() {
 			defer wg.Done()
 			if err := app.RunGRPCServer(ctx, kc); err != nil {
-				fmt.Println(err)
+				errs = append(errs, err)
 				cancel()
 			}
 		}()
 	}
 
 	wg.Wait()
-	log.Println("Shutdown completed")
-}
-
-func mainListener(ctx context.Context, wg *sync.WaitGroup, fn katsubushi.ListenFunc, addr string) {
-	defer wg.Done()
-	if err := fn(ctx, addr); err != nil {
-		log.Println("Listen failed", err)
-		os.Exit(1)
+	code := 0
+	if len(errs) > 0 {
+		for _, err := range errs {
+			if errors.Is(err, context.Canceled) || errors.Is(err, http.ErrServerClosed) {
+				continue
+			}
+			log.Println(err)
+			code = 1
+		}
 	}
+	log.Println("Shutdown completed")
+	os.Exit(code)
 }
 
 func profiler(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, pc *profConfig) {

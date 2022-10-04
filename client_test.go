@@ -228,7 +228,8 @@ func TestClientTimeout(t *testing.T) {
 	defer cancel()
 
 	app := newTestAppDelayed(t, time.Second)
-	go app.ListenTCP(ctx, "localhost:0")
+	l, _ := app.ListenerTCP("localhost:0")
+	go app.Serve(ctx, l)
 	<-app.Ready()
 
 	c := NewClient(app.Listener.Addr().String())

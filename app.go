@@ -3,6 +3,7 @@ package katsubushi
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	stdlog "log"
@@ -12,7 +13,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -52,7 +52,6 @@ type App struct {
 
 	gen     Generator
 	readyCh chan interface{}
-	mu      sync.Mutex
 
 	// App will disconnect connection if there are no commands until idleTimeout.
 	idleTimeout time.Duration
@@ -67,47 +66,25 @@ type App struct {
 	getMisses        int64
 }
 
-// Option represents a App optional parameters.
-type Option struct {
-	WorkerID    uint
-	IdleTimeout *time.Duration
-}
-
-// NewApp create and returns new App instance.
-func NewApp(opt Option) (*App, error) {
-	gen, err := NewGenerator(opt.WorkerID)
+// New create and returns new App instance.
+func New(workerID uint) (*App, error) {
+	gen, err := NewGenerator(workerID)
 	if err != nil {
 		return nil, err
 	}
-	var timeout time.Duration
-	if opt.IdleTimeout != nil {
-		timeout = *opt.IdleTimeout
-	} else {
-		timeout = DefaultIdleTimeout
-	}
-
 	return &App{
-		idleTimeout: timeout,
-		gen:         gen,
-		startedAt:   time.Now(),
-		readyCh:     make(chan interface{}),
+		gen:       gen,
+		startedAt: time.Now(),
+		readyCh:   make(chan interface{}),
 	}, nil
 }
 
 // NewAppWithGenerator create and returns new App instance with specified Generator.
-func NewAppWithGenerator(gen Generator, opt Option) (*App, error) {
-	var timeout time.Duration
-	if opt.IdleTimeout != nil {
-		timeout = *opt.IdleTimeout
-	} else {
-		timeout = DefaultIdleTimeout
-	}
-
+func NewAppWithGenerator(gen Generator, workerID uint) (*App, error) {
 	return &App{
-		idleTimeout: timeout,
-		gen:         gen,
-		startedAt:   time.Now(),
-		readyCh:     make(chan interface{}),
+		gen:       gen,
+		startedAt: time.Now(),
+		readyCh:   make(chan interface{}),
 	}, nil
 }
 
@@ -148,34 +125,47 @@ func StdLogger() *stdlog.Logger {
 	return zap.NewStdLog(logger)
 }
 
-// ListenFunc is the type for listeners.
-type ListenFunc func(context.Context, string) error
+func (app *App) RunServer(ctx context.Context, kc *Config) error {
+	var l net.Listener
+	var err error
+	if kc.Sockpath != "" {
+		l, err = app.ListenerSock(kc.Sockpath)
+		if err != nil {
+			return err
+		}
+	} else {
+		l, err = app.ListenerTCP(fmt.Sprintf(":%d", kc.Port))
+		if err != nil {
+			return err
+		}
+	}
+	app.idleTimeout = kc.IdleTimeout
+	return app.Serve(ctx, l)
+}
 
-// ListenSock starts listen Unix Domain Socket on sockpath.
-func (app *App) ListenSock(ctx context.Context, sockpath string) error {
+// ListenerSock starts listen Unix Domain Socket on sockpath.
+func (app *App) ListenerSock(sockpath string) (net.Listener, error) {
 	// NOTE: gomemcache expect filepath contains slashes.
 	l, err := net.Listen("unix", filepath.ToSlash(sockpath))
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	return app.Listen(ctx, l)
+	return app.wrapListener(l), nil
 }
 
-// ListenTCP starts listen on host:port.
-func (app *App) ListenTCP(ctx context.Context, addr string) error {
+// ListenerTCP starts listen on host:port.
+func (app *App) ListenerTCP(addr string) (net.Listener, error) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	return app.Listen(ctx, l)
+	return app.wrapListener(l), nil
 }
 
-// Listen starts listen.
-func (app *App) Listen(ctx context.Context, l net.Listener) error {
+// Serve starts a server.
+func (app *App) Serve(ctx context.Context, l net.Listener) error {
 	defer logger.Sync()
-	log.Infof("Listening at %s", l.Addr().String())
+	log.Infof("Listening server at %s", l.Addr().String())
 	log.Infof("Worker ID = %d", app.gen.WorkerID())
 
 	app.Listener = l
@@ -193,7 +183,7 @@ func (app *App) Listen(ctx context.Context, l net.Listener) error {
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				log.Info("Shutting down listener")
+				log.Info("Shutting down server")
 				return nil
 			default:
 				log.Warnf("Error on accept connection: %s", err)
@@ -212,15 +202,11 @@ func (app *App) Ready() chan interface{} {
 }
 
 func (app *App) handleConn(ctx context.Context, conn net.Conn) {
-	atomic.AddInt64(&(app.totalConnections), 1)
-	atomic.AddInt64(&(app.currConnections), 1)
-
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
 		<-ctx2.Done()
 		conn.Close()
-		atomic.AddInt64(&(app.currConnections), -1)
 		log.Debugf("Closed %s", conn.RemoteAddr().String())
 	}()
 
@@ -229,9 +215,11 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	bufReader := bufio.NewReader(conn)
 	isBin, err := app.IsBinaryProtocol(bufReader)
 	if err != nil {
-		if err != io.EOF {
-			log.Errorf("error on read first byte to decide binary protocol or not: %s", err)
+		if errors.Is(err, io.EOF) || strings.Contains(err.Error(), "i/o timeout") {
+			log.Debugf("Connection closed %s: %s", conn.RemoteAddr().String(), err)
+			return
 		}
+		log.Errorf("error on read first byte to decide binary protocol or not: %s", err)
 		return
 	}
 	if isBin {
@@ -324,7 +312,7 @@ func (app *App) NextID() (uint64, error) {
 // BytesToCmd converts byte array to a MemdCmd and returns it.
 func (app *App) BytesToCmd(data []byte) (cmd MemdCmd, err error) {
 	if len(data) == 0 {
-		return nil, fmt.Errorf("No command")
+		return nil, fmt.Errorf("no command")
 	}
 
 	fields := strings.Fields(string(data))
@@ -346,7 +334,7 @@ func (app *App) BytesToCmd(data []byte) (cmd MemdCmd, err error) {
 	case "VERSION":
 		cmd = MemdCmdVersion(0)
 	default:
-		err = fmt.Errorf("Unknown command: %s", name)
+		err = fmt.Errorf("unknown command: %s", name)
 	}
 	return
 }

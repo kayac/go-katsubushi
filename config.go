@@ -1,13 +1,16 @@
 package katsubushi
 
-import "net"
+import (
+	"net"
+	"time"
+)
 
 type Config struct {
-	WorkerID    uint
-	Port        int
-	IdleTimeout int
+	IdleTimeout time.Duration
 	LogLevel    string
-	Sockpath    string
+
+	Port     int
+	Sockpath string
 
 	HTTPPort       int
 	HTTPPathPrefix string
