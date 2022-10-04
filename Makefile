@@ -1,7 +1,7 @@
 GIT_VER := $(shell git describe --tags | sed -e 's/^v//')
 export GO111MODULE := on
 
-all: katsubushi
+all: grpc-gen katsubushi
 
 katsubushi: cmd/katsubushi/katsubushi
 
