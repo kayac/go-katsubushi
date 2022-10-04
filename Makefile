@@ -1,7 +1,7 @@
 GIT_VER := $(shell git describe --tags | sed -e 's/^v//')
 export GO111MODULE := on
 
-all: katsubushi
+all: grpc-gen katsubushi
 
 katsubushi: cmd/katsubushi/katsubushi
 
@@ -14,7 +14,7 @@ install: cmd/katsubushi/katsubushi
 	install cmd/katsubushi/katsubushi ${GOPATH}/bin
 
 clean:
-	rm -rf cmd/katsubushi/katsubushi dist/*
+	rm -rf cmd/katsubushi/katsubushi dist/* grpc/*.pb.go
 
 test:
 	go test -race
@@ -52,3 +52,8 @@ docker-push: docker
 		-t ghcr.io/kayac/go-katsubushi:v${GIT_VER} \
 		--push \
 		.
+
+grpc-gen: proto/*.proto
+	protoc -I=proto --go_out=./grpc --go-grpc_out=./grpc proto/*.proto
+	mv grpc/katsubushi/grpc/*.go grpc
+	rm -fr grpc/katsubushi
