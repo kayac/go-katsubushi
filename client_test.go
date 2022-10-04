@@ -18,7 +18,7 @@ func BenchmarkClientFetch(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		c := NewClient(app.Listener.Addr().String())
 		for pb.Next() {
-			id, err := c.Fetch()
+			id, err := c.Fetch(context.Background())
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -53,7 +53,7 @@ func TestClientFetch(t *testing.T) {
 	app := newTestAppAndListenTCP(ctx, t, nil)
 	c := NewClient(app.Listener.Addr().String())
 
-	id, err := c.Fetch()
+	id, err := c.Fetch(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestClientMulti(t *testing.T) {
 	app := newTestAppAndListenTCP(ctx, t, nil)
 	c := NewClient(app.Listener.Addr().String())
 
-	ids, err := c.FetchMulti(3)
+	ids, err := c.FetchMulti(context.Background(), 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestClientFetchRetry(t *testing.T) {
 	c := NewClient(app.Listener.Addr().String())
 
 	for i := 0; i < 3; i++ {
-		id, err := c.Fetch()
+		id, err := c.Fetch(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -121,7 +121,7 @@ func TestClientFetchBackup(t *testing.T) {
 
 	{
 		// fetched from app1
-		id, err := c.Fetch()
+		id, err := c.Fetch(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -135,7 +135,7 @@ func TestClientFetchBackup(t *testing.T) {
 
 	{
 		// fetched from app2
-		id, err := c.Fetch()
+		id, err := c.Fetch(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -155,7 +155,7 @@ func TestClientFail(t *testing.T) {
 
 	cancelAndWait(cancel)
 
-	_, err := c.Fetch()
+	_, err := c.Fetch(context.Background())
 	if err == nil {
 		t.Error("must be failed")
 	}
@@ -172,7 +172,7 @@ func TestClientFailMulti(t *testing.T) {
 
 	cancelAndWait(cancel)
 
-	_, err := c.FetchMulti(3)
+	_, err := c.FetchMulti(context.Background(), 3)
 	if err == nil {
 		t.Error("must be failed")
 	}
@@ -194,7 +194,7 @@ func TestClientFailBackup(t *testing.T) {
 	cancelAndWait(cancel1)
 	cancelAndWait(cancel2)
 
-	_, err := c.Fetch()
+	_, err := c.Fetch(context.Background())
 	if err == nil {
 		t.Error("must be failed")
 	}
@@ -216,7 +216,7 @@ func TestClientFailBackupMulti(t *testing.T) {
 	cancelAndWait(cancel1)
 	cancelAndWait(cancel2)
 
-	_, err := c.FetchMulti(3)
+	_, err := c.FetchMulti(context.Background(), 3)
 	if err == nil {
 		t.Error("must be failed")
 	}
@@ -235,7 +235,7 @@ func TestClientTimeout(t *testing.T) {
 	c := NewClient(app.Listener.Addr().String())
 	c.SetTimeout(500 * time.Millisecond)
 
-	_, err := c.Fetch()
+	_, err := c.Fetch(context.Background())
 	if err == nil {
 		t.Error("timeout expected but err is nil")
 	}
