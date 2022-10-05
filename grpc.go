@@ -64,6 +64,7 @@ func (sv *gRPCGenerator) FetchMulti(ctx context.Context, req *grpc.FetchMultiReq
 
 func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	svGen := &gRPCGenerator{app: app}
+	svStats := &gRPCStats{app: app}
 
 	opts := []grpc_recovery.Option{
 		grpc_recovery.WithRecoveryHandler(grpcRecoveryFunc),
@@ -72,6 +73,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 		grpc_recovery.UnaryServerInterceptor(opts...),
 	))
 	grpc.RegisterGeneratorServer(s, svGen)
+	grpc.RegisterStatsServer(s, svStats)
 	reflection.Register(s)
 
 	listener := cfg.GRPCListener
@@ -96,4 +98,24 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 func grpcRecoveryFunc(p interface{}) error {
 	log.Errorf("panic: %v", p)
 	return status.Errorf(codes.Internal, "Unexpected error")
+}
+
+type gRPCStats struct {
+	grpc.StatsServer
+	app *App
+}
+
+func (sv *gRPCStats) Get(ctx context.Context, req *grpc.StatsRequest) (*grpc.StatsResponse, error) {
+	st := sv.app.GetStats()
+	return &grpc.StatsResponse{
+		Pid:              int32(st.Pid),
+		Uptime:           st.Uptime,
+		Time:             st.Time,
+		Version:          st.Version,
+		CurrConnections:  st.CurrConnections,
+		TotalConnections: st.TotalConnections,
+		CmdGet:           st.CmdGet,
+		GetHits:          st.GetHits,
+		GetMisses:        st.GetMisses,
+	}, nil
 }
