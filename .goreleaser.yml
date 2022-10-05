@@ -1,0 +1,32 @@
+# This is an example goreleaser.yaml file with some sane defaults.
+# Make sure to check the documentation at http://goreleaser.com
+before:
+  hooks:
+    - go mod download
+builds:
+  - env:
+      - CGO_ENABLED=0
+    main: ./cmd/katsubushi/
+    binary: katsubushi
+    ldflags:
+      - -s -w
+      - -X github.com/kayac/go-katsubushi.Version=v{{.Version}}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+release:
+  prerelease: "true"
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ .Env.NIGHTLY_VERSION }}"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
