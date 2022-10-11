@@ -3,6 +3,7 @@ package katsubushi
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -34,9 +35,10 @@ func (c *memcacheClient) SetTimeout(t time.Duration) {
 	c.timeout = t
 }
 
-func (c *memcacheClient) connect() error {
+func (c *memcacheClient) connect(ctx context.Context) error {
 	var err error
-	c.conn, err = net.DialTimeout("tcp", c.addr, c.timeout)
+	d := net.Dialer{Timeout: c.timeout}
+	c.conn, err = d.DialContext(ctx, "tcp", c.addr)
 	c.rw = bufio.NewReadWriter(bufio.NewReader(c.conn), bufio.NewWriter(c.conn))
 	return err
 }
@@ -49,11 +51,11 @@ func (c *memcacheClient) close() error {
 	return nil
 }
 
-func (c *memcacheClient) Get(key string) (uint64, error) {
+func (c *memcacheClient) Get(ctx context.Context, key string) (uint64, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn == nil {
-		if err := c.connect(); err != nil {
+		if err := c.connect(ctx); err != nil {
 			return 0, err
 		}
 	}
@@ -84,11 +86,11 @@ func (c *memcacheClient) Get(key string) (uint64, error) {
 	return id, nil
 }
 
-func (c *memcacheClient) GetMulti(keys []string) ([]uint64, error) {
+func (c *memcacheClient) GetMulti(ctx context.Context, keys []string) ([]uint64, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn == nil {
-		if err := c.connect(); err != nil {
+		if err := c.connect(ctx); err != nil {
 			return nil, err
 		}
 	}

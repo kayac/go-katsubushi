@@ -160,6 +160,12 @@ This API returns a JSON always.
 }
 ```
 
+## Protocol (gRPC)
+
+katsubushi also runs an gRPC server specified with `-grpc-port`.
+
+See [grpc/README.md](grpc/README.md).
+
 ## Algorithm
 
 katsubushi use algorithm like snowflake to generate ID.
@@ -230,6 +236,19 @@ Endpoint is `/debug/stats`.
 Optional.
 Port number for listen http used for `pprof` and `stats` API.
 Defalut value is `8080`.
+
+### -http-port
+
+Optional.
+Port number of HTTP server.
+Default value is `0` (disabled).
+
+### -grpc-port
+
+Optional.
+Port number of gRPC server.
+Default value is `0` (disabled).
+
 
 ## Licence
 

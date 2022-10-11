@@ -1,6 +1,7 @@
 package katsubushi
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -36,13 +37,13 @@ func (c *Client) SetTimeout(t time.Duration) {
 }
 
 // Fetch fetches id from katsubushi
-func (c *Client) Fetch() (uint64, error) {
+func (c *Client) Fetch(ctx context.Context) (uint64, error) {
 	errs := errors.New("no servers available")
 	for _, mc := range c.memcacheClients {
 		var id uint64
 		err := retry.Retry(2, 0, func() error {
 			var _err error
-			id, _err = mc.Get("id")
+			id, _err = mc.Get(ctx, "id")
 			return _err
 		})
 		if err != nil {
@@ -55,7 +56,7 @@ func (c *Client) Fetch() (uint64, error) {
 }
 
 // FetchMulti fetches multiple ids from katsubushi
-func (c *Client) FetchMulti(n int) ([]uint64, error) {
+func (c *Client) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 	keys := make([]string, 0, n)
 
 	for i := 0; i < n; i++ {
@@ -68,7 +69,7 @@ func (c *Client) FetchMulti(n int) ([]uint64, error) {
 		var ids []uint64
 		err := retry.Retry(2, 0, func() error {
 			var _err error
-			ids, _err = mc.GetMulti(keys)
+			ids, _err = mc.GetMulti(ctx, keys)
 			return _err
 		})
 		if err != nil {

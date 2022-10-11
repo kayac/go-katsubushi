@@ -29,17 +29,6 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 	mux.HandleFunc(fmt.Sprintf("/%sstats", cfg.HTTPPathPrefix), app.HTTPGetStats)
 	s := &http.Server{
 		Handler: mux,
-		ConnState: func(conn net.Conn, state http.ConnState) {
-			switch state {
-			case http.StateNew:
-				log.Debugf("Connected HTTP from %s", conn.RemoteAddr())
-				atomic.AddInt64(&app.totalConnections, 1)
-				atomic.AddInt64(&app.currConnections, 1)
-			case http.StateClosed:
-				log.Debugf("Closed HTTP %s", conn.RemoteAddr())
-				atomic.AddInt64(&app.currConnections, -1)
-			}
-		},
 	}
 	// shutdown
 	go func() {
@@ -48,14 +37,17 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 		s.Shutdown(ctx)
 	}()
 
-	if cfg.HTTPListener != nil {
-		log.Infof("Listening HTTP server at %s", cfg.HTTPListener.Addr())
-		return s.Serve(cfg.HTTPListener)
-	} else {
-		s.Addr = fmt.Sprintf(":%d", cfg.HTTPPort)
-		log.Infof("Listening HTTP server at :%d", cfg.HTTPPort)
-		return s.ListenAndServe()
+	listener := cfg.HTTPListener
+	if listener == nil {
+		var err error
+		listener, err = net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
+		if err != nil {
+			return errors.Wrap(err, "failed to listen")
+		}
 	}
+	listener = app.wrapListener(listener)
+	log.Infof("Listening HTTP server at %s", listener.Addr())
+	return s.Serve(listener)
 }
 
 func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
@@ -181,12 +173,12 @@ func (c *HTTPClient) SetTimeout(t time.Duration) {
 }
 
 // Fetch fetches id from katsubushi via HTTP
-func (c *HTTPClient) Fetch() (uint64, error) {
+func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 	errs := errors.New("no servers available")
 	for _, u := range c.urls {
 		id, err := func(u *url.URL) (uint64, error) {
 			u.Path = fmt.Sprintf("/%sid", c.pathPrefix)
-			req, _ := http.NewRequest("GET", u.String(), nil)
+			req, _ := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 			resp, err := c.client.Do(req)
 			if err != nil {
 				return 0, err
@@ -218,14 +210,14 @@ func (c *HTTPClient) Fetch() (uint64, error) {
 }
 
 // FetchMulti fetches multiple ids from katsubushi via HTTP
-func (c *HTTPClient) FetchMulti(n int) ([]uint64, error) {
+func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 	errs := errors.New("no servers available")
 	ids := make([]uint64, 0, n)
 	for _, u := range c.urls {
 		ids, err := func(u *url.URL) ([]uint64, error) {
 			u.Path = fmt.Sprintf("/%sids", c.pathPrefix)
 			u.RawQuery = fmt.Sprintf("n=%d", n)
-			req, _ := http.NewRequest("GET", u.String(), nil)
+			req, _ := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 			resp, err := c.client.Do(req)
 			if err != nil {
 				return nil, err

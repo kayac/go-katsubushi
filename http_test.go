@@ -20,7 +20,7 @@ var httpPort int
 
 func init() {
 	var err error
-	httpApp, err = katsubushi.NewApp(katsubushi.Option{WorkerID: 80})
+	httpApp, err = katsubushi.New(80)
 	if err != nil {
 		panic(err)
 	}
@@ -171,7 +171,7 @@ func TestHTTPSingleCS(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 10; i++ {
-		id, err := client.Fetch()
+		id, err := client.Fetch(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -189,7 +189,7 @@ func TestHTTPMultiCS(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 10; i++ {
-		ids, err := client.FetchMulti(10)
+		ids, err := client.FetchMulti(context.Background(), 10)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -212,7 +212,7 @@ func BenchmarkHTTPClientFetch(b *testing.B) {
 		u := fmt.Sprintf("http://localhost:%d", httpPort)
 		c, _ := katsubushi.NewHTTPClient([]string{u}, "")
 		for pb.Next() {
-			id, err := c.Fetch()
+			id, err := c.Fetch(context.Background())
 			if err != nil {
 				b.Fatal(err)
 			}

@@ -21,15 +21,15 @@ const (
 	MaxGRPCBulkSize = 1000
 )
 
-type gRPCServer struct {
+type gRPCGenerator struct {
 	grpc.GeneratorServer
 	app *App
 }
 
-func (s *gRPCServer) Fetch(ctx context.Context, req *grpc.FetchRequest) (*grpc.FetchResponse, error) {
-	atomic.AddInt64(&s.app.cmdGet, 1)
+func (sv *gRPCGenerator) Fetch(ctx context.Context, req *grpc.FetchRequest) (*grpc.FetchResponse, error) {
+	atomic.AddInt64(&sv.app.cmdGet, 1)
 
-	id, err := s.app.NextID()
+	id, err := sv.app.NextID()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get id")
 	}
@@ -39,8 +39,8 @@ func (s *gRPCServer) Fetch(ctx context.Context, req *grpc.FetchRequest) (*grpc.F
 	return res, nil
 }
 
-func (s *gRPCServer) FetchMulti(ctx context.Context, req *grpc.FetchMultiRequest) (*grpc.FetchMultiResponse, error) {
-	atomic.AddInt64(&s.app.cmdGet, 1)
+func (sv *gRPCGenerator) FetchMulti(ctx context.Context, req *grpc.FetchMultiRequest) (*grpc.FetchMultiResponse, error) {
+	atomic.AddInt64(&sv.app.cmdGet, 1)
 	n := int(req.N)
 	if n > MaxGRPCBulkSize {
 		return nil, errors.Errorf("too many IDs requested: %d, n should be smaller than %d", n, MaxGRPCBulkSize)
@@ -50,7 +50,7 @@ func (s *gRPCServer) FetchMulti(ctx context.Context, req *grpc.FetchMultiRequest
 	}
 	ids := make([]uint64, 0, n)
 	for i := 0; i < n; i++ {
-		id, err := s.app.NextID()
+		id, err := sv.app.NextID()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get id")
 		}
@@ -63,9 +63,8 @@ func (s *gRPCServer) FetchMulti(ctx context.Context, req *grpc.FetchMultiRequest
 }
 
 func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
-	sv := &gRPCServer{
-		app: app,
-	}
+	svGen := &gRPCGenerator{app: app}
+	svStats := &gRPCStats{app: app}
 
 	opts := []grpc_recovery.Option{
 		grpc_recovery.WithRecoveryHandler(grpcRecoveryFunc),
@@ -73,7 +72,8 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	s := gogrpc.NewServer(grpc_middleware.WithUnaryServerChain(
 		grpc_recovery.UnaryServerInterceptor(opts...),
 	))
-	grpc.RegisterGeneratorServer(s, sv)
+	grpc.RegisterGeneratorServer(s, svGen)
+	grpc.RegisterStatsServer(s, svStats)
 	reflection.Register(s)
 
 	listener := cfg.GRPCListener
@@ -84,6 +84,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 			return errors.Wrap(err, "failed to listen")
 		}
 	}
+	listener = app.wrapListener(listener)
 	go func() {
 		<-ctx.Done()
 		log.Infof("Shutting down gRPC server")
@@ -97,4 +98,24 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 func grpcRecoveryFunc(p interface{}) error {
 	log.Errorf("panic: %v", p)
 	return status.Errorf(codes.Internal, "Unexpected error")
+}
+
+type gRPCStats struct {
+	grpc.StatsServer
+	app *App
+}
+
+func (sv *gRPCStats) Get(ctx context.Context, req *grpc.StatsRequest) (*grpc.StatsResponse, error) {
+	st := sv.app.GetStats()
+	return &grpc.StatsResponse{
+		Pid:              int32(st.Pid),
+		Uptime:           st.Uptime,
+		Time:             st.Time,
+		Version:          st.Version,
+		CurrConnections:  st.CurrConnections,
+		TotalConnections: st.TotalConnections,
+		CmdGet:           st.CmdGet,
+		GetHits:          st.GetHits,
+		GetMisses:        st.GetMisses,
+	}, nil
 }
