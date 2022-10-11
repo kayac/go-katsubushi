@@ -36,6 +36,7 @@ docker: clean packages
 		.
 
 docker-push:
+	mv dist/go-katsubushi_linux_amd64_v1 dist/go-katsubushi_linux_amd64
 	docker buildx build \
 		--build-arg VERSION=v${GIT_VER} \
 		--platform linux/amd64,linux/arm64 \
