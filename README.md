@@ -237,6 +237,19 @@ Optional.
 Port number for listen http used for `pprof` and `stats` API.
 Defalut value is `8080`.
 
+### -http-port
+
+Optional.
+Port number of HTTP server.
+Default value is `0` (disabled).
+
+### -grpc-port
+
+Optional.
+Port number of gRPC server.
+Default value is `0` (disabled).
+
+
 ## Licence
 
 [MIT](https://github.com/kayac/go-katsubushi/blob/master/LICENSE)
