@@ -7,6 +7,10 @@ import (
 )
 
 func (app *App) wrapListener(l net.Listener) net.Listener {
+	if _, wrapped := l.(*monitListener); wrapped {
+		// already wrapped
+		return l
+	}
 	return &monitListener{
 		Listener: l,
 		app:      app,
