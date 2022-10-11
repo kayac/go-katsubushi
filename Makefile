@@ -49,3 +49,4 @@ grpc-gen: proto/*.proto
 	protoc -I=proto --go_out=./grpc --go-grpc_out=./grpc proto/*.proto
 	mv grpc/katsubushi/grpc/*.go grpc
 	rm -fr grpc/katsubushi
+	protoc -I=proto --doc_out=./grpc --doc_opt=markdown,README.md proto/*.proto

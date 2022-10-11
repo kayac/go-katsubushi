@@ -160,6 +160,12 @@ This API returns a JSON always.
 }
 ```
 
+## Protocol (gRPC)
+
+katsubushi also runs an gRPC server specified with `-grpc-port`.
+
+See [grpc/README.md](grpc/README.md).
+
 ## Algorithm
 
 katsubushi use algorithm like snowflake to generate ID.
