@@ -14,27 +14,19 @@ install: cmd/katsubushi/katsubushi
 	install cmd/katsubushi/katsubushi ${GOPATH}/bin
 
 clean:
-	rm -rf cmd/katsubushi/katsubushi dist/* grpc/*.pb.go
+	rm -rf cmd/katsubushi/katsubushi dist/*
 
 test:
 	go test -race
 
 packages:
-	CGO_ENABLED=0 \
-		goxz -pv="v${GIT_VER}" \
-			-build-ldflags="-s -w -X github.com/kayac/go-katsubushi.Version=${GIT_VER}" \
-			-os=darwin,linux \
-			-arch=amd64,arm64 \
-			-d=dist \
-			./cmd/katsubushi
+	goreleaser build --skip-validate --rm-dist
 
-release:
-	ghr -prerelease -u kayac -r go-katsubushi -n "v${GIT_VER}" ${GIT_VER} dist/
+packages-snapshot:
+	goreleaser build --skip-validate --rm-dist --snapshot
 
 docker: clean packages
-	cd dist && \
-		tar xvf go-katsubushi_v${GIT_VER}_linux_amd64.tar.gz && \
-		tar xvf go-katsubushi_v${GIT_VER}_linux_arm64.tar.gz
+	mv dist/go-katsubushi_linux_amd64_v1 dist/go-katsubushi_linux_amd64
 	docker buildx build \
 		--build-arg VERSION=v${GIT_VER} \
 		--platform linux/amd64,linux/arm64 \
