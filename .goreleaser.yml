@@ -18,9 +18,11 @@ builds:
     goarch:
       - amd64
       - arm64
+archives:
+  - name_template: "{{.ProjectName}}_v{{.Version}}_{{.Os}}_{{.Arch}}"
+
 release:
   prerelease: "true"
-  name_template: "{{.ProjectName}}_v{{.Version}}_{{.Os}}_{{.Arch}}"
 checksum:
   name_template: "checksums.txt"
 snapshot:
