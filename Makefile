@@ -35,7 +35,7 @@ docker: clean packages
 		-t ghcr.io/kayac/go-katsubushi:v${GIT_VER} \
 		.
 
-docker-push: docker
+docker-push:
 	docker buildx build \
 		--build-arg VERSION=v${GIT_VER} \
 		--platform linux/amd64,linux/arm64 \
