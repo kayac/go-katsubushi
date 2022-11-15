@@ -18,7 +18,7 @@ import (
 
 	"github.com/fujiwara/raus"
 	stats_api "github.com/fukata/golang-stats-api-handler"
-	"github.com/kayac/go-katsubushi"
+	"github.com/kayac/go-katsubushi/v2"
 )
 
 type profConfig struct {
