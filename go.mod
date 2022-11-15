@@ -1,4 +1,4 @@
-module github.com/kayac/go-katsubushi
+module github.com/kayac/go-katsubushi/v2
 
 go 1.17
 
