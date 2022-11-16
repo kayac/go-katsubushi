@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync/atomic"
 
-	"github.com/kayac/go-katsubushi/grpc"
+	"github.com/kayac/go-katsubushi/v2/grpc"
 	"github.com/pkg/errors"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"

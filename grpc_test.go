@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kayac/go-katsubushi"
-	"github.com/kayac/go-katsubushi/grpc"
+	"github.com/kayac/go-katsubushi/v2"
+	"github.com/kayac/go-katsubushi/v2/grpc"
 
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

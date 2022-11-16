@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kayac/go-katsubushi"
+	"github.com/kayac/go-katsubushi/v2"
 )
 
 func TestConvertFixed(t *testing.T) {
