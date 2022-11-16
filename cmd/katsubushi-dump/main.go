@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	katsubushi "github.com/kayac/go-katsubushi"
+	katsubushi "github.com/kayac/go-katsubushi/v2"
 )
 
 type Dump struct {

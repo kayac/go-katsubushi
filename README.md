@@ -20,7 +20,7 @@ END
 Download from [releases](https://github.com/kayac/go-katsubushi/releases) or build from source code.
 
 ```
-$ go get github.com/kayac/go-katsubushi
+$ go get github.com/kayac/go-katsubushi/v2
 $ cd $GOPATH/github.com/kayac/go-katsubushi
 make
 ```

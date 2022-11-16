@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kayac/go-katsubushi"
+	"github.com/kayac/go-katsubushi/v2"
 )
 
 var httpApp *katsubushi.App
