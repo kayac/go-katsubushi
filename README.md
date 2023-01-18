@@ -184,6 +184,8 @@ URL of Redis server. e.g. `redis://example.com:6379/0`
 
 `redis://{host}:{port}/{db}?ns={namespace}`
 
+If you are using Redis Cluster, you will need to specify the URL as `rediscluster://{host}:{port}?ns={namespace}`.
+
 This option is specified, katsubushi will assign an unique worker ID via Redis.
 
 All katsubushi process for your service must use a same Redis URL.
