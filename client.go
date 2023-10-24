@@ -12,6 +12,11 @@ import (
 // DefaultClientTimeout is default timeout for katsubushi client
 var DefaultClientTimeout = 5 * time.Second
 
+type ClientInterface interface {
+	Fetch(ctx context.Context) (uint64, error)
+	FetchMulti(ctx context.Context, n int) ([]uint64, error)
+}
+
 // Client is katsubushi client
 type Client struct {
 	memcacheClients []*memcacheClient

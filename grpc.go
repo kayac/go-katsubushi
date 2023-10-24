@@ -13,6 +13,7 @@ import (
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
@@ -118,4 +119,38 @@ func (sv *gRPCStats) Get(ctx context.Context, req *grpc.StatsRequest) (*grpc.Sta
 		GetHits:          st.GetHits,
 		GetMisses:        st.GetMisses,
 	}, nil
+}
+
+type GRPCClient struct {
+	client grpc.GeneratorClient
+}
+
+func NewGRPCClient(addr string) (*GRPCClient, error) {
+	conn, err := gogrpc.Dial(
+		addr,
+		gogrpc.WithTransportCredentials(insecure.NewCredentials()),
+		gogrpc.WithBlock(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &GRPCClient{
+		client: grpc.NewGeneratorClient(conn),
+	}, nil
+}
+
+func (g *GRPCClient) Fetch(ctx context.Context) (uint64, error) {
+	res, err := g.client.Fetch(ctx, &grpc.FetchRequest{})
+	if err != nil {
+		return 0, err
+	}
+	return res.Id, nil
+}
+
+func (g *GRPCClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
+	res, err := g.client.FetchMulti(ctx, &grpc.FetchMultiRequest{N: uint32(n)})
+	if err != nil {
+		return nil, err
+	}
+	return res.Ids, nil
 }

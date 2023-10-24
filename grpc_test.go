@@ -60,7 +60,7 @@ func TestGRPCSingle(t *testing.T) {
 		if res.Id == 0 {
 			t.Fatal("id should not be 0")
 		}
-		t.Logf("HTTP fetched single ID: %d", res.Id)
+		t.Logf("gRPC fetched single ID: %d", res.Id)
 	}
 }
 
@@ -83,7 +83,46 @@ func TestGRPCMulti(t *testing.T) {
 				t.Fatal("id should not be 0")
 			}
 		}
-		t.Logf("HTTP fetched IDs: %v", res.Ids)
+		t.Logf("gRPC fetched IDs: %v", res.Ids)
+	}
+}
+
+func TestGRPCClientSingle(t *testing.T) {
+	client, err := katsubushi.NewGRPCClient(fmt.Sprintf("localhost:%d", grpcPort))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		id, err := client.Fetch(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if id == 0 {
+			t.Fatal("id should not be 0")
+		}
+		t.Logf("gRPC fetched single ID: %d", id)
+	}
+}
+
+func TestGRPCClientMulti(t *testing.T) {
+	client, err := katsubushi.NewGRPCClient(fmt.Sprintf("localhost:%d", grpcPort))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		ids, err := client.FetchMulti(context.Background(), 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(ids) != 10 {
+			t.Fatalf("ids should contain 10 elements %v", ids)
+		}
+		for _, id := range ids {
+			if id == 0 {
+				t.Fatal("id should not be 0")
+			}
+		}
+		t.Logf("gRPC fetched IDs: %v", ids)
 	}
 }
 
