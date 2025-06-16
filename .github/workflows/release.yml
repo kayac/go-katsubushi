@@ -26,9 +26,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
+          version: "~> v2"
           args: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

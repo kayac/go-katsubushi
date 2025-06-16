@@ -20,10 +20,10 @@ test:
 	go test -race
 
 packages:
-	goreleaser build --skip-validate --rm-dist
+	goreleaser build --skip=validate --clean
 
 packages-snapshot:
-	goreleaser build --skip-validate --rm-dist --snapshot
+	goreleaser build --skip=validate --clean --snapshot
 
 docker: clean packages
 	mv dist/go-katsubushi_linux_amd64_v1 dist/go-katsubushi_linux_amd64
