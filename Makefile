@@ -6,7 +6,7 @@ all: grpc-gen katsubushi
 katsubushi: cmd/katsubushi/katsubushi
 
 cmd/katsubushi/katsubushi: *.go cmd/katsubushi/*.go
-	cd cmd/katsubushi && go build -ldflags "-w -s -X github.com/kayac/go-katsubushi.Version=${GIT_VER}"
+	cd cmd/katsubushi && go build -ldflags "-w -s"
 
 
 .PHONEY: clean test packages install
