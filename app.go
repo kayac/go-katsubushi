@@ -20,8 +20,6 @@ import (
 )
 
 var (
-	// Version number
-	Version   = "development"
 	logger, _ = zap.NewDevelopment()
 	log       = logger.Sugar()
 )
