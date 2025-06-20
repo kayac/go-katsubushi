@@ -6,8 +6,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         go:
-          - "1.21"
-          - "1.22"
+          - "1.24"
+          - "1.23"
     name: Build
     runs-on: ${{ matrix.os }}
     steps:
