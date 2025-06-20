@@ -3,6 +3,9 @@ export GO111MODULE := on
 
 all: grpc-gen katsubushi
 
+setup:
+	aqua i
+
 katsubushi: cmd/katsubushi/katsubushi
 
 cmd/katsubushi/katsubushi: *.go cmd/katsubushi/*.go
