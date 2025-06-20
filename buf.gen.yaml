@@ -1,0 +1,13 @@
+version: v2
+managed:
+  enabled: true
+plugins:
+  - remote: buf.build/protocolbuffers/go:v1.36.6
+    out: grpc
+  - remote: buf.build/grpc/go:v1.5.1
+    out: grpc
+  - local: protoc-gen-doc
+    out: grpc
+    opt: markdown,README.md
+inputs:
+  - directory: proto

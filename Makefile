@@ -3,6 +3,9 @@ export GO111MODULE := on
 
 all: grpc-gen katsubushi
 
+setup:
+	aqua i
+
 katsubushi: cmd/katsubushi/katsubushi
 
 cmd/katsubushi/katsubushi: *.go cmd/katsubushi/*.go
@@ -47,7 +50,6 @@ docker-push:
 		.
 
 grpc-gen: proto/*.proto
-	protoc -I=proto --go_out=./grpc --go-grpc_out=./grpc proto/*.proto
+	buf generate
 	mv grpc/katsubushi/grpc/*.go grpc
 	rm -fr grpc/katsubushi
-	protoc -I=proto --doc_out=./grpc --doc_opt=markdown,README.md proto/*.proto
