@@ -35,6 +35,7 @@ docker: clean packages
 		--platform linux/amd64,linux/arm64 \
 		-f docker/Dockerfile \
 		-t katsubushi/katsubushi:v${GIT_VER} \
+		-t katsubushi/katsubushi:latest \
 		-t ghcr.io/kayac/go-katsubushi:v${GIT_VER} \
 		.
 
@@ -45,6 +46,7 @@ docker-push:
 		--platform linux/amd64,linux/arm64 \
 		-f docker/Dockerfile \
 		-t katsubushi/katsubushi:v${GIT_VER} \
+		-t katsubushi/katsubushi:latest \
 		-t ghcr.io/kayac/go-katsubushi:v${GIT_VER} \
 		--push \
 		.
