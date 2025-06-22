@@ -1,3 +1,3 @@
 package katsubushi
 
-const Version = "2.0.4"
+const Version = "2.1.0"
