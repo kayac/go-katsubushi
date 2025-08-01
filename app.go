@@ -7,22 +7,97 @@ import (
 	"fmt"
 	"io"
 	stdlog "log"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
-
-	"go.uber.org/zap"
 )
 
-var (
-	logger, _ = zap.NewDevelopment()
-	log       = logger.Sugar()
-)
+// customHandler implements slog.Handler with custom formatting
+type customHandler struct {
+	h slog.Handler
+}
+
+func newCustomHandler(w io.Writer, level slog.Level) *customHandler {
+	opts := &slog.HandlerOptions{
+		Level:     level,
+		AddSource: true,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			// Remove default keys as we'll format them ourselves
+			if a.Key == slog.TimeKey || a.Key == slog.LevelKey || a.Key == slog.SourceKey || a.Key == slog.MessageKey {
+				return slog.Attr{}
+			}
+			return a
+		},
+	}
+	return &customHandler{
+		h: slog.NewTextHandler(w, opts),
+	}
+}
+
+func (h *customHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.h.Enabled(ctx, level)
+}
+
+func (h *customHandler) Handle(ctx context.Context, r slog.Record) error {
+	// Format: 2025-08-01T22:11:28.043+0900    INFO    go-katsubushi/grpc.go:94        Message
+	var buf []byte
+
+	// Time
+	buf = r.Time.AppendFormat(buf, "2006-01-02T15:04:05.000-0700")
+	buf = append(buf, '\t')
+
+	// Level
+	buf = append(buf, r.Level.String()...)
+	buf = append(buf, '\t')
+
+	// Source location
+	if r.PC != 0 {
+		fs := runtime.CallersFrames([]uintptr{r.PC})
+		f, _ := fs.Next()
+		// Extract just the package/file.go:line from the full path
+		file := f.File
+		idx := strings.LastIndex(file, "/go-katsubushi/")
+		if idx >= 0 {
+			file = "go-katsubushi/" + file[idx+len("/go-katsubushi/"):]
+		}
+		buf = append(buf, file...)
+		buf = append(buf, ':')
+		buf = append(buf, strconv.Itoa(f.Line)...)
+		buf = append(buf, '\t')
+	}
+
+	// Message
+	buf = append(buf, r.Message...)
+
+	// Attributes
+	r.Attrs(func(a slog.Attr) bool {
+		buf = append(buf, ' ')
+		buf = append(buf, a.Key...)
+		buf = append(buf, '=')
+		buf = append(buf, fmt.Sprint(a.Value.Any())...)
+		return true
+	})
+
+	buf = append(buf, '\n')
+
+	_, err := os.Stderr.Write(buf)
+	return err
+}
+
+func (h *customHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &customHandler{h: h.h.WithAttrs(attrs)}
+}
+
+func (h *customHandler) WithGroup(name string) slog.Handler {
+	return &customHandler{h: h.h.WithGroup(name)}
+}
 
 var (
 	respError         = []byte("ERROR\r\n")
@@ -86,41 +161,40 @@ func NewAppWithGenerator(gen Generator, workerID uint) (*App, error) {
 	}, nil
 }
 
+func init() {
+	handler := newCustomHandler(os.Stderr, slog.LevelInfo)
+	l := slog.New(handler)
+	slog.SetDefault(l)
+}
+
 // SetLogLevel sets log level.
 // Log level must be one of debug, info, warning, error, fatal and panic.
 func SetLogLevel(str string) error {
-	conf := zap.Config{
-		Encoding:         "console",
-		EncoderConfig:    zap.NewDevelopmentEncoderConfig(),
-		OutputPaths:      []string{"stderr"},
-		ErrorOutputPaths: []string{"stderr"},
-	}
+	var level slog.Level
 	switch str {
 	case "debug":
-		conf.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-		conf.Development = true
+		level = slog.LevelDebug
 	case "info":
-		conf.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+		level = slog.LevelInfo
 	case "warning":
-		conf.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
+		level = slog.LevelWarn
 	case "error":
-		conf.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
-	case "fatal":
-		conf.Level = zap.NewAtomicLevelAt(zap.FatalLevel)
-	case "panic":
-		conf.Level = zap.NewAtomicLevelAt(zap.PanicLevel)
+		level = slog.LevelError
+	case "fatal", "panic":
+		// slog doesn't have fatal/panic levels, use error
+		level = slog.LevelError
 	default:
 		return fmt.Errorf("invalid log level %s", str)
 	}
-	logger.Sync()
-	logger, _ = conf.Build()
-	log = logger.Sugar()
+	handler := newCustomHandler(os.Stderr, level)
+	l := slog.New(handler)
+	slog.SetDefault(l)
 	return nil
 }
 
-// StdLogger returns the standard logger.
+// StdLogger returns the standard slog.
 func StdLogger() *stdlog.Logger {
-	return zap.NewStdLog(logger)
+	return slog.NewLogLogger(slog.Default().Handler(), slog.LevelInfo)
 }
 
 func (app *App) RunServer(ctx context.Context, kc *Config) error {
@@ -162,9 +236,8 @@ func (app *App) ListenerTCP(addr string) (net.Listener, error) {
 
 // Serve starts a server.
 func (app *App) Serve(ctx context.Context, l net.Listener) error {
-	defer logger.Sync()
-	log.Infof("Listening server at %s", l.Addr().String())
-	log.Infof("Worker ID = %d", app.gen.WorkerID())
+	slog.Info("Listening server at " + l.Addr().String())
+	slog.Info("Worker ID = " + strconv.FormatUint(uint64(app.gen.WorkerID()), 10))
 
 	app.Listener = l
 	close(app.readyCh)
@@ -172,7 +245,7 @@ func (app *App) Serve(ctx context.Context, l net.Listener) error {
 	go func() {
 		<-ctx.Done()
 		if err := l.Close(); err != nil {
-			log.Warn(err)
+			slog.Warn("Failed to close listener", "error", err)
 		}
 	}()
 
@@ -181,14 +254,14 @@ func (app *App) Serve(ctx context.Context, l net.Listener) error {
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				log.Info("Shutting down server")
+				slog.Info("Shutting down server")
 				return nil
 			default:
-				log.Warnf("Error on accept connection: %s", err)
+				slog.Warn("Error on accept connection", "error", err)
 				return err
 			}
 		}
-		log.Debugf("Connected from %s", conn.RemoteAddr().String())
+		slog.Debug("Connected from " + conn.RemoteAddr().String())
 
 		go app.handleConn(ctx, conn)
 	}
@@ -205,7 +278,7 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	go func() {
 		<-ctx2.Done()
 		conn.Close()
-		log.Debugf("Closed %s", conn.RemoteAddr().String())
+		slog.Debug("Closed " + conn.RemoteAddr().String())
 	}()
 
 	app.extendDeadline(conn)
@@ -214,14 +287,14 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	isBin, err := app.IsBinaryProtocol(bufReader)
 	if err != nil {
 		if errors.Is(err, io.EOF) || strings.Contains(err.Error(), "i/o timeout") {
-			log.Debugf("Connection closed %s: %s", conn.RemoteAddr().String(), err)
+			slog.Debug("Connection closed", "remote", conn.RemoteAddr().String(), "error", err)
 			return
 		}
-		log.Errorf("error on read first byte to decide binary protocol or not: %s", err)
+		slog.Error("error on read first byte to decide binary protocol or not", "error", err)
 		return
 	}
 	if isBin {
-		log.Debug("binary protocol")
+		slog.Debug("binary protocol")
 		app.RespondToBinary(bufReader, conn)
 		return
 	}
@@ -232,26 +305,26 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	for scanner.Scan() {
 		deadline, err = app.extendDeadline(conn)
 		if err != nil {
-			log.Warnf("error on set deadline: %s", err)
+			slog.Warn("error on set deadline", "error", err)
 			return
 		}
 		cmd, err := app.BytesToCmd(scanner.Bytes())
 		if err != nil {
 			if err := app.writeError(conn); err != nil {
-				log.Warnf("error on write error: %s", err)
+				slog.Warn("error on write error", "error", err)
 				return
 			}
 			continue
 		}
 		if err := cmd.Execute(app, w); err != nil {
 			if err != io.EOF {
-				log.Warnf("error on execute cmd %s: %s", cmd, err)
+				slog.Warn("error on execute cmd", "cmd", fmt.Sprintf("%v", cmd), "error", err)
 			}
 			return
 		}
 		if err := w.Flush(); err != nil {
 			if err != io.EOF {
-				log.Warnf("error on cmd %s write to conn: %s", cmd, err)
+				slog.Warn("error on cmd write to conn", "cmd", fmt.Sprintf("%v", cmd), "error", err)
 			}
 			return
 		}
@@ -264,9 +337,9 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 		default:
 		}
 		if !deadline.IsZero() && time.Now().After(deadline) {
-			log.Debugf("deadline exceeded: %s", err)
+			slog.Debug("deadline exceeded", "error", err)
 		} else {
-			log.Warnf("error on scanning request: %s", err)
+			slog.Warn("error on scanning request", "error", err)
 		}
 	}
 }
@@ -290,7 +363,7 @@ func (app *App) GetStats() MemdStats {
 func (app *App) writeError(conn io.Writer) (err error) {
 	_, err = conn.Write(respError)
 	if err != nil {
-		log.Warn(err)
+		slog.Warn("Failed to write error response", "error", err)
 	}
 
 	return
@@ -362,14 +435,14 @@ func (cmd *MemdCmdGet) Execute(app *App, conn io.Writer) error {
 	for i := range cmd.Keys {
 		id, err := app.NextID()
 		if err != nil {
-			log.Warn(err)
+			slog.Warn("Failed to generate ID", "error", err)
 			if err = app.writeError(conn); err != nil {
-				log.Warn("error on write error: %s", err)
+				slog.Warn("error on write error", "error", err)
 				return err
 			}
 			return nil
 		}
-		log.Debugf("Generated ID: %d", id)
+		slog.Debug("Generated ID", "id", id)
 		values[i] = strconv.FormatUint(id, 10)
 	}
 	_, err := MemdValue{

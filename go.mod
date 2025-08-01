@@ -10,7 +10,6 @@ require (
 	github.com/fukata/golang-stats-api-handler v1.0.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/pkg/errors v0.9.1
-	go.uber.org/zap v1.10.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 )
@@ -23,8 +22,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
-	go.uber.org/atomic v1.4.0 // indirect
-	go.uber.org/multierr v1.1.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
