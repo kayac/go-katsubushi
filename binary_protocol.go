@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"reflect"
 	"strconv"
@@ -197,7 +198,7 @@ func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 		req, err := newBRequest(r)
 		if err != nil {
 			if err != io.EOF {
-				logger.Warn("Failed to read binary request", "error", err)
+				slog.Warn("Failed to read binary request", "error", err)
 			}
 			return
 		}
@@ -205,19 +206,19 @@ func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 		cmd, err := app.BytesToBinaryCmd(*req)
 		if err != nil {
 			if err := app.writeBinaryError(conn); err != nil {
-				logger.Warn("error on write error", "error", err)
+				slog.Warn("error on write error", "error", err)
 				return
 			}
 			continue
 		}
 		w := bufio.NewWriter(conn)
 		if err := cmd.Execute(app, w); err != nil {
-			logger.Warn("error on execute cmd", "cmd", fmt.Sprintf("%v", cmd), "error", err)
+			slog.Warn("error on execute cmd", "cmd", fmt.Sprintf("%v", cmd), "error", err)
 			return
 		}
 		if err := w.Flush(); err != nil {
 			if err != io.EOF {
-				logger.Warn("error on cmd write", "cmd", fmt.Sprintf("%v", cmd), "error", err)
+				slog.Warn("error on cmd write", "cmd", fmt.Sprintf("%v", cmd), "error", err)
 			}
 			return
 		}
@@ -276,14 +277,14 @@ type MemdBCmdGet struct {
 func (cmd *MemdBCmdGet) Execute(app *App, w io.Writer) error {
 	id, err := app.NextID()
 	if err != nil {
-		logger.Warn("Failed to generate ID", "error", err)
+		slog.Warn("Failed to generate ID", "error", err)
 		if err = app.writeError(w); err != nil {
-			logger.Warn("error on write error", "error", err)
+			slog.Warn("error on write error", "error", err)
 			return err
 		}
 		return nil
 	}
-	logger.Debug("Generated ID", "id", id)
+	slog.Debug("Generated ID", "id", id)
 
 	res := newBResponse(opcodeGet, cmd.Opaque, bResponseConfig{
 		// fixed 4bytes flags is given to GET response

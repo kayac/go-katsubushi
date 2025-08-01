@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -33,7 +34,7 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 	// shutdown
 	go func() {
 		<-ctx.Done()
-		logger.Info("Shutting down HTTP server")
+		slog.Info("Shutting down HTTP server")
 		s.Shutdown(ctx)
 	}()
 
@@ -46,7 +47,7 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 		}
 	}
 	listener = app.wrapListener(listener)
-	logger.Info("Listening HTTP server at " + listener.Addr().String())
+	slog.Info("Listening HTTP server at " + listener.Addr().String())
 	return s.Serve(listener)
 }
 
@@ -56,14 +57,14 @@ func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	atomic.AddInt64(&app.cmdGet, 1)
-	logger.Debug("HTTP GetSingleID request", "remote", req.RemoteAddr)
+	slog.Debug("HTTP GetSingleID request", "remote", req.RemoteAddr)
 	id, err := app.NextID()
 	if err != nil {
-		logger.Error("Failed to generate ID", "error", err)
+		slog.Error("Failed to generate ID", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	logger.Debug("HTTP Generated ID", "id", id)
+	slog.Debug("HTTP Generated ID", "id", id)
 	if strings.Contains(req.Header.Get("Accept"), "application/json") {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"id":"%d"}`, id)
@@ -79,7 +80,7 @@ func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	atomic.AddInt64(&app.cmdGet, 1)
-	logger.Debug("HTTP GetMultiID request", "remote", req.RemoteAddr)
+	slog.Debug("HTTP GetMultiID request", "remote", req.RemoteAddr)
 	var n int64
 	if ns := req.FormValue("n"); ns == "" {
 		n = 1
@@ -87,14 +88,14 @@ func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 		var err error
 		n, err = strconv.ParseInt(ns, 10, 64)
 		if err != nil {
-			logger.Error("Failed to parse n parameter", "error", err)
+			slog.Error("Failed to parse n parameter", "error", err)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 	}
 	if n > MaxHTTPBulkSize {
 		msg := fmt.Sprintf("too many IDs requested: %d, n should be smaller than %d", n, MaxHTTPBulkSize)
-		logger.Error(msg)
+		slog.Error(msg)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(msg))
 		return
@@ -103,13 +104,13 @@ func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 	for i := int64(0); i < n; i++ {
 		id, err := app.NextID()
 		if err != nil {
-			logger.Error("Failed to generate ID", "error", err)
+			slog.Error("Failed to generate ID", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		ids = append(ids, strconv.FormatUint(id, 10))
 	}
-	logger.Debug("HTTP Generated IDs", "ids", ids, "count", len(ids))
+	slog.Debug("HTTP Generated IDs", "ids", ids, "count", len(ids))
 	if strings.Contains(req.Header.Get("Accept"), "application/json") {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct {
@@ -126,13 +127,13 @@ func (app *App) HTTPGetStats(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	logger.Debug("HTTP GetStats request", "remote", req.RemoteAddr)
+	slog.Debug("HTTP GetStats request", "remote", req.RemoteAddr)
 	s := app.GetStats()
 	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(s); err != nil {
-		logger.Error("Failed to encode stats", "error", err)
+		slog.Error("Failed to encode stats", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

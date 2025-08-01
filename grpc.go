@@ -3,6 +3,7 @@ package katsubushi
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync/atomic"
 
@@ -28,13 +29,13 @@ type gRPCGenerator struct {
 
 func (sv *gRPCGenerator) Fetch(ctx context.Context, req *grpc.FetchRequest) (*grpc.FetchResponse, error) {
 	atomic.AddInt64(&sv.app.cmdGet, 1)
-	logger.Debug("gRPC Fetch request")
+	slog.Debug("gRPC Fetch request")
 
 	id, err := sv.app.NextID()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get id")
 	}
-	logger.Debug("gRPC Generated ID", "id", id)
+	slog.Debug("gRPC Generated ID", "id", id)
 	res := &grpc.FetchResponse{
 		Id: id,
 	}
@@ -44,7 +45,7 @@ func (sv *gRPCGenerator) Fetch(ctx context.Context, req *grpc.FetchRequest) (*gr
 func (sv *gRPCGenerator) FetchMulti(ctx context.Context, req *grpc.FetchMultiRequest) (*grpc.FetchMultiResponse, error) {
 	atomic.AddInt64(&sv.app.cmdGet, 1)
 	n := int(req.N)
-	logger.Debug("gRPC FetchMulti request", "n", n)
+	slog.Debug("gRPC FetchMulti request", "n", n)
 	if n > MaxGRPCBulkSize {
 		return nil, errors.Errorf("too many IDs requested: %d, n should be smaller than %d", n, MaxGRPCBulkSize)
 	}
@@ -59,7 +60,7 @@ func (sv *gRPCGenerator) FetchMulti(ctx context.Context, req *grpc.FetchMultiReq
 		}
 		ids = append(ids, id)
 	}
-	logger.Debug("gRPC Generated IDs", "ids", ids)
+	slog.Debug("gRPC Generated IDs", "ids", ids)
 	res := &grpc.FetchMultiResponse{
 		Ids: ids,
 	}
@@ -91,16 +92,16 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	listener = app.wrapListener(listener)
 	go func() {
 		<-ctx.Done()
-		logger.Info("Shutting down gRPC server")
+		slog.Info("Shutting down gRPC server")
 		s.Stop()
 	}()
 
-	logger.Info("Listening gRPC server at " + listener.Addr().String())
+	slog.Info("Listening gRPC server at " + listener.Addr().String())
 	return s.Serve(listener)
 }
 
 func grpcRecoveryFunc(p interface{}) error {
-	logger.Error("panic", "value", p)
+	slog.Error("panic", "value", p)
 	return status.Errorf(codes.Internal, "Unexpected error")
 }
 
@@ -110,7 +111,7 @@ type gRPCStats struct {
 }
 
 func (sv *gRPCStats) Get(ctx context.Context, req *grpc.StatsRequest) (*grpc.StatsResponse, error) {
-	logger.Debug("gRPC Stats request")
+	slog.Debug("gRPC Stats request")
 	st := sv.app.GetStats()
 	return &grpc.StatsResponse{
 		Pid:              int32(st.Pid),

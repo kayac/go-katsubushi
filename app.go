@@ -19,9 +19,6 @@ import (
 	"time"
 )
 
-var (
-	logger *slog.Logger
-)
 
 // customHandler implements slog.Handler with custom formatting
 type customHandler struct {
@@ -167,8 +164,8 @@ func NewAppWithGenerator(gen Generator, workerID uint) (*App, error) {
 
 func init() {
 	handler := newCustomHandler(os.Stderr, slog.LevelInfo)
-	logger = slog.New(handler)
-	slog.SetDefault(logger)
+	l := slog.New(handler)
+	slog.SetDefault(l)
 }
 
 // SetLogLevel sets log level.
@@ -191,14 +188,14 @@ func SetLogLevel(str string) error {
 		return fmt.Errorf("invalid log level %s", str)
 	}
 	handler := newCustomHandler(os.Stderr, level)
-	logger = slog.New(handler)
-	slog.SetDefault(logger)
+	l := slog.New(handler)
+	slog.SetDefault(l)
 	return nil
 }
 
-// StdLogger returns the standard logger.
+// StdLogger returns the standard slog.
 func StdLogger() *stdlog.Logger {
-	return slog.NewLogLogger(logger.Handler(), slog.LevelInfo)
+	return slog.NewLogLogger(slog.Default().Handler(), slog.LevelInfo)
 }
 
 func (app *App) RunServer(ctx context.Context, kc *Config) error {
@@ -240,8 +237,8 @@ func (app *App) ListenerTCP(addr string) (net.Listener, error) {
 
 // Serve starts a server.
 func (app *App) Serve(ctx context.Context, l net.Listener) error {
-	logger.Info("Listening server at " + l.Addr().String())
-	logger.Info("Worker ID = " + strconv.FormatUint(uint64(app.gen.WorkerID()), 10))
+	slog.Info("Listening server at " + l.Addr().String())
+	slog.Info("Worker ID = " + strconv.FormatUint(uint64(app.gen.WorkerID()), 10))
 
 	app.Listener = l
 	close(app.readyCh)
@@ -249,7 +246,7 @@ func (app *App) Serve(ctx context.Context, l net.Listener) error {
 	go func() {
 		<-ctx.Done()
 		if err := l.Close(); err != nil {
-			logger.Warn("Failed to close listener", "error", err)
+			slog.Warn("Failed to close listener", "error", err)
 		}
 	}()
 
@@ -258,14 +255,14 @@ func (app *App) Serve(ctx context.Context, l net.Listener) error {
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				logger.Info("Shutting down server")
+				slog.Info("Shutting down server")
 				return nil
 			default:
-				logger.Warn("Error on accept connection", "error", err)
+				slog.Warn("Error on accept connection", "error", err)
 				return err
 			}
 		}
-		logger.Debug("Connected from " + conn.RemoteAddr().String())
+		slog.Debug("Connected from " + conn.RemoteAddr().String())
 
 		go app.handleConn(ctx, conn)
 	}
@@ -282,7 +279,7 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	go func() {
 		<-ctx2.Done()
 		conn.Close()
-		logger.Debug("Closed " + conn.RemoteAddr().String())
+		slog.Debug("Closed " + conn.RemoteAddr().String())
 	}()
 
 	app.extendDeadline(conn)
@@ -291,14 +288,14 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	isBin, err := app.IsBinaryProtocol(bufReader)
 	if err != nil {
 		if errors.Is(err, io.EOF) || strings.Contains(err.Error(), "i/o timeout") {
-			logger.Debug("Connection closed", "remote", conn.RemoteAddr().String(), "error", err)
+			slog.Debug("Connection closed", "remote", conn.RemoteAddr().String(), "error", err)
 			return
 		}
-		logger.Error("error on read first byte to decide binary protocol or not", "error", err)
+		slog.Error("error on read first byte to decide binary protocol or not", "error", err)
 		return
 	}
 	if isBin {
-		logger.Debug("binary protocol")
+		slog.Debug("binary protocol")
 		app.RespondToBinary(bufReader, conn)
 		return
 	}
@@ -309,26 +306,26 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 	for scanner.Scan() {
 		deadline, err = app.extendDeadline(conn)
 		if err != nil {
-			logger.Warn("error on set deadline", "error", err)
+			slog.Warn("error on set deadline", "error", err)
 			return
 		}
 		cmd, err := app.BytesToCmd(scanner.Bytes())
 		if err != nil {
 			if err := app.writeError(conn); err != nil {
-				logger.Warn("error on write error", "error", err)
+				slog.Warn("error on write error", "error", err)
 				return
 			}
 			continue
 		}
 		if err := cmd.Execute(app, w); err != nil {
 			if err != io.EOF {
-				logger.Warn("error on execute cmd", "cmd", fmt.Sprintf("%v", cmd), "error", err)
+				slog.Warn("error on execute cmd", "cmd", fmt.Sprintf("%v", cmd), "error", err)
 			}
 			return
 		}
 		if err := w.Flush(); err != nil {
 			if err != io.EOF {
-				logger.Warn("error on cmd write to conn", "cmd", fmt.Sprintf("%v", cmd), "error", err)
+				slog.Warn("error on cmd write to conn", "cmd", fmt.Sprintf("%v", cmd), "error", err)
 			}
 			return
 		}
@@ -341,9 +338,9 @@ func (app *App) handleConn(ctx context.Context, conn net.Conn) {
 		default:
 		}
 		if !deadline.IsZero() && time.Now().After(deadline) {
-			logger.Debug("deadline exceeded", "error", err)
+			slog.Debug("deadline exceeded", "error", err)
 		} else {
-			logger.Warn("error on scanning request", "error", err)
+			slog.Warn("error on scanning request", "error", err)
 		}
 	}
 }
@@ -367,7 +364,7 @@ func (app *App) GetStats() MemdStats {
 func (app *App) writeError(conn io.Writer) (err error) {
 	_, err = conn.Write(respError)
 	if err != nil {
-		logger.Warn("Failed to write error response", "error", err)
+		slog.Warn("Failed to write error response", "error", err)
 	}
 
 	return
@@ -439,14 +436,14 @@ func (cmd *MemdCmdGet) Execute(app *App, conn io.Writer) error {
 	for i := range cmd.Keys {
 		id, err := app.NextID()
 		if err != nil {
-			logger.Warn("Failed to generate ID", "error", err)
+			slog.Warn("Failed to generate ID", "error", err)
 			if err = app.writeError(conn); err != nil {
-				logger.Warn("error on write error", "error", err)
+				slog.Warn("error on write error", "error", err)
 				return err
 			}
 			return nil
 		}
-		logger.Debug("Generated ID", "id", id)
+		slog.Debug("Generated ID", "id", id)
 		values[i] = strconv.FormatUint(id, 10)
 	}
 	_, err := MemdValue{
