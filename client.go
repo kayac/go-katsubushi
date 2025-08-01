@@ -2,11 +2,11 @@ package katsubushi
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/Songmu/retry"
-	"github.com/pkg/errors"
 )
 
 // DefaultClientTimeout is default timeout for katsubushi client
@@ -38,7 +38,7 @@ func (c *Client) SetTimeout(t time.Duration) {
 
 // Fetch fetches id from katsubushi
 func (c *Client) Fetch(ctx context.Context) (uint64, error) {
-	errs := errors.New("no servers available")
+	errs := fmt.Errorf("no servers available")
 	for _, mc := range c.memcacheClients {
 		var id uint64
 		err := retry.Retry(2, 0, func() error {
@@ -47,7 +47,7 @@ func (c *Client) Fetch(ctx context.Context) (uint64, error) {
 			return _err
 		})
 		if err != nil {
-			errs = errors.Wrap(errs, err.Error())
+			errs = fmt.Errorf("%s: %w", err.Error(), errs)
 			continue
 		}
 		return id, nil
@@ -63,7 +63,7 @@ func (c *Client) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 		keys = append(keys, strconv.Itoa(i))
 	}
 
-	errs := errors.New("no servers available")
+	errs := fmt.Errorf("no servers available")
 
 	for _, mc := range c.memcacheClients {
 		var ids []uint64
@@ -73,7 +73,7 @@ func (c *Client) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 			return _err
 		})
 		if err != nil {
-			errs = errors.Wrap(errs, err.Error())
+			errs = fmt.Errorf("%s: %w", err.Error(), errs)
 			continue
 		}
 		return ids, nil

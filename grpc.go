@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 
 	"github.com/kayac/go-katsubushi/v2/grpc"
-	"github.com/pkg/errors"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -33,7 +32,7 @@ func (sv *gRPCGenerator) Fetch(ctx context.Context, req *grpc.FetchRequest) (*gr
 
 	id, err := sv.app.NextID()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get id")
+		return nil, fmt.Errorf("failed to get id: %w", err)
 	}
 	slog.Debug("gRPC Generated ID", "id", id)
 	res := &grpc.FetchResponse{
@@ -47,7 +46,7 @@ func (sv *gRPCGenerator) FetchMulti(ctx context.Context, req *grpc.FetchMultiReq
 	n := int(req.N)
 	slog.Debug("gRPC FetchMulti request", "n", n)
 	if n > MaxGRPCBulkSize {
-		return nil, errors.Errorf("too many IDs requested: %d, n should be smaller than %d", n, MaxGRPCBulkSize)
+		return nil, fmt.Errorf("too many IDs requested: %d, n should be smaller than %d", n, MaxGRPCBulkSize)
 	}
 	if n == 0 {
 		n = 1
@@ -56,7 +55,7 @@ func (sv *gRPCGenerator) FetchMulti(ctx context.Context, req *grpc.FetchMultiReq
 	for i := 0; i < n; i++ {
 		id, err := sv.app.NextID()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get id")
+			return nil, fmt.Errorf("failed to get id: %w", err)
 		}
 		ids = append(ids, id)
 	}
@@ -86,7 +85,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 		var err error
 		listener, err = net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
 		if err != nil {
-			return errors.Wrap(err, "failed to listen")
+			return fmt.Errorf("failed to listen: %w", err)
 		}
 	}
 	listener = app.wrapListener(listener)

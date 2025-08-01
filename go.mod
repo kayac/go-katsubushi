@@ -6,10 +6,9 @@ require (
 	github.com/Songmu/retry v0.0.1
 	github.com/bmizerany/mc v0.0.0-20180522153755-eeb3d7218919
 	github.com/bradfitz/gomemcache v0.0.0-20170208213004-1952afaa557d
-	github.com/fujiwara/raus v0.1.0
+	github.com/fujiwara/raus v0.2.0
 	github.com/fukata/golang-stats-api-handler v1.0.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
-	github.com/pkg/errors v0.9.1
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 )
@@ -18,9 +17,9 @@ require (
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
+	github.com/redis/go-redis/v9 v9.11.0 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
