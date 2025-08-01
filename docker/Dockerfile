@@ -1,6 +1,6 @@
 # katsubushi
 
-FROM alpine:3.16.2
+FROM alpine:3.22
 ARG VERSION
 ARG TARGETARCH
 ADD dist/go-katsubushi_linux_${TARGETARCH}*/katsubushi /usr/local/bin/katsubushi
