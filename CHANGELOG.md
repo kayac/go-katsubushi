@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2.2.0](https://github.com/kayac/go-katsubushi/compare/v2.1.0...v2.2.0) - 2025-08-01
+- Replace zap with slog and maintain original log format by @fujiwara in https://github.com/kayac/go-katsubushi/pull/73
+- Replace pkg/errors with fmt.Errorf and update raus to v0.2.0 by @fujiwara in https://github.com/kayac/go-katsubushi/pull/75
+- Update Alpine Linux base image to 3.22 by @fujiwara in https://github.com/kayac/go-katsubushi/pull/76
+- Add gRPC health check endpoint by @fujiwara in https://github.com/kayac/go-katsubushi/pull/77
+
 ## [v2.1.0](https://github.com/kayac/go-katsubushi/compare/v2.0.4...v2.1.0) - 2025-06-22
 - Migrate to goreleaser v2 by @handlename in https://github.com/kayac/go-katsubushi/pull/66
 - Pin Action versions by @handlename in https://github.com/kayac/go-katsubushi/pull/67
