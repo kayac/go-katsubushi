@@ -15,8 +15,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -43,7 +41,7 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 		var err error
 		listener, err = net.Listen("tcp", fmt.Sprintf(":%d", cfg.HTTPPort))
 		if err != nil {
-			return errors.Wrap(err, "failed to listen")
+			return fmt.Errorf("failed to listen: %w", err)
 		}
 	}
 	listener = app.wrapListener(listener)
@@ -161,10 +159,10 @@ func NewHTTPClient(urls []string, pathPrefix string) (*HTTPClient, error) {
 	for _, _u := range urls {
 		u, err := url.Parse(_u)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse URL: %s", _u)
+			return nil, fmt.Errorf("failed to parse URL: %s: %w", _u, err)
 		}
 		if u.Scheme != "http" && u.Scheme != "https" {
-			return nil, errors.Errorf("invalid URL scheme: %s", u.Scheme)
+			return nil, fmt.Errorf("invalid URL scheme: %s", u.Scheme)
 		}
 		c.urls = append(c.urls, u)
 	}
@@ -178,7 +176,7 @@ func (c *HTTPClient) SetTimeout(t time.Duration) {
 
 // Fetch fetches id from katsubushi via HTTP
 func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
-	errs := errors.New("no servers available")
+	errs := fmt.Errorf("no servers available")
 	for _, u := range c.urls {
 		id, err := func(u *url.URL) (uint64, error) {
 			u.Path = fmt.Sprintf("/%sid", c.pathPrefix)
@@ -189,7 +187,7 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
-				return 0, errors.Errorf("unexpected status code: %d", resp.StatusCode)
+				return 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 			}
 			b := c.pool.Get().(*bytes.Buffer)
 			defer func() {
@@ -206,7 +204,7 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 			}
 		}(u)
 		if err != nil {
-			errs = errors.Wrapf(err, "failed to fetch id from %s", u)
+			errs = fmt.Errorf("failed to fetch id from %s: %w", u, err)
 		}
 		return id, nil
 	}
@@ -215,7 +213,7 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 
 // FetchMulti fetches multiple ids from katsubushi via HTTP
 func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
-	errs := errors.New("no servers available")
+	errs := fmt.Errorf("no servers available")
 	ids := make([]uint64, 0, n)
 	for _, u := range c.urls {
 		ids, err := func(u *url.URL) ([]uint64, error) {
@@ -228,7 +226,7 @@ func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
-				return nil, errors.Errorf("unexpected status code: %d", resp.StatusCode)
+				return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 			}
 
 			b := c.pool.Get().(*bytes.Buffer)
@@ -254,7 +252,7 @@ func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 			return ids, nil
 		}(u)
 		if err != nil {
-			errs = errors.Wrapf(errs, "failed to fetch ids from %s", u)
+			errs = fmt.Errorf("failed to fetch ids from %s: %w", u, errs)
 		}
 		return ids, nil
 	}
