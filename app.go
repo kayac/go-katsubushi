@@ -19,7 +19,6 @@ import (
 	"time"
 )
 
-
 // customHandler implements slog.Handler with custom formatting
 type customHandler struct {
 	h slog.Handler
@@ -27,7 +26,7 @@ type customHandler struct {
 
 func newCustomHandler(w io.Writer, level slog.Level) *customHandler {
 	opts := &slog.HandlerOptions{
-		Level: level,
+		Level:     level,
 		AddSource: true,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			// Remove default keys as we'll format them ourselves
@@ -49,15 +48,15 @@ func (h *customHandler) Enabled(ctx context.Context, level slog.Level) bool {
 func (h *customHandler) Handle(ctx context.Context, r slog.Record) error {
 	// Format: 2025-08-01T22:11:28.043+0900    INFO    go-katsubushi/grpc.go:94        Message
 	var buf []byte
-	
+
 	// Time
 	buf = r.Time.AppendFormat(buf, "2006-01-02T15:04:05.000-0700")
 	buf = append(buf, '\t')
-	
+
 	// Level
 	buf = append(buf, r.Level.String()...)
 	buf = append(buf, '\t')
-	
+
 	// Source location
 	if r.PC != 0 {
 		fs := runtime.CallersFrames([]uintptr{r.PC})
@@ -73,10 +72,10 @@ func (h *customHandler) Handle(ctx context.Context, r slog.Record) error {
 		buf = append(buf, strconv.Itoa(f.Line)...)
 		buf = append(buf, '\t')
 	}
-	
+
 	// Message
 	buf = append(buf, r.Message...)
-	
+
 	// Attributes
 	r.Attrs(func(a slog.Attr) bool {
 		buf = append(buf, ' ')
@@ -85,9 +84,9 @@ func (h *customHandler) Handle(ctx context.Context, r slog.Record) error {
 		buf = append(buf, fmt.Sprint(a.Value.Any())...)
 		return true
 	})
-	
+
 	buf = append(buf, '\n')
-	
+
 	_, err := os.Stderr.Write(buf)
 	return err
 }
