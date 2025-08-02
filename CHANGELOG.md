@@ -1,5 +1,8 @@
 # Changelog
 
+## [v2.2.1](https://github.com/kayac/go-katsubushi/compare/v2.2.0...v2.2.1) - 2025-08-02
+- Improve logging performance and consistency by @fujiwara in https://github.com/kayac/go-katsubushi/pull/78
+
 ## [v2.2.0](https://github.com/kayac/go-katsubushi/compare/v2.1.0...v2.2.0) - 2025-08-01
 - Replace zap with slog and maintain original log format by @fujiwara in https://github.com/kayac/go-katsubushi/pull/73
 - Replace pkg/errors with fmt.Errorf and update raus to v0.2.0 by @fujiwara in https://github.com/kayac/go-katsubushi/pull/75
