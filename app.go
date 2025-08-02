@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	stdlog "log"
 	"log/slog"
 	"net"
 	"os"
@@ -15,13 +14,16 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
 // customHandler implements slog.Handler with custom formatting
 type customHandler struct {
-	h slog.Handler
+	h     slog.Handler
+	w     io.Writer
+	cache sync.Map // Cache for source file paths
 }
 
 func newCustomHandler(w io.Writer, level slog.Level) *customHandler {
@@ -38,6 +40,7 @@ func newCustomHandler(w io.Writer, level slog.Level) *customHandler {
 	}
 	return &customHandler{
 		h: slog.NewTextHandler(w, opts),
+		w: w,
 	}
 }
 
@@ -45,58 +48,101 @@ func (h *customHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return h.h.Enabled(ctx, level)
 }
 
+// Extract just the package/file.go from the full path with caching
+func (h *customHandler) getFilePath(path string) []byte {
+	if cached, ok := h.cache.Load(path); ok {
+		return cached.([]byte)
+	}
+	dir := filepath.Dir(path)                        // /path/to/bar
+	base := filepath.Base(path)                      // baz.txt
+	parentDir := filepath.Base(dir)                  // bar
+	result := []byte(filepath.Join(parentDir, base)) // bar/baz.txt
+	h.cache.Store(path, result)
+	return result
+}
+
 func (h *customHandler) Handle(ctx context.Context, r slog.Record) error {
 	// Format: 2025-08-01T22:11:28.043+0900    INFO    go-katsubushi/grpc.go:94        Message
-	var buf []byte
+	// Pre-allocate buffer with estimated size
+	// Time(29) + \t + Level(5) + \t + Source(~30) + \t + Message + Attrs
+	estimatedSize := 128 + len(r.Message)
+	buf := make([]byte, 0, estimatedSize)
 
 	// Time
 	buf = r.Time.AppendFormat(buf, "2006-01-02T15:04:05.000-0700")
 	buf = append(buf, '\t')
 
-	// Level
-	buf = append(buf, r.Level.String()...)
+	// Level - optimize common cases
+	switch r.Level {
+	case slog.LevelDebug:
+		buf = append(buf, "DEBUG"...)
+	case slog.LevelInfo:
+		buf = append(buf, "INFO"...)
+	case slog.LevelWarn:
+		buf = append(buf, "WARN"...)
+	case slog.LevelError:
+		buf = append(buf, "ERROR"...)
+	default:
+		buf = append(buf, r.Level.String()...)
+	}
 	buf = append(buf, '\t')
 
 	// Source location
 	if r.PC != 0 {
 		fs := runtime.CallersFrames([]uintptr{r.PC})
 		f, _ := fs.Next()
-		// Extract just the package/file.go:line from the full path
-		file := f.File
-		idx := strings.LastIndex(file, "/go-katsubushi/")
-		if idx >= 0 {
-			file = "go-katsubushi/" + file[idx+len("/go-katsubushi/"):]
-		}
+		file := h.getFilePath(f.File)
 		buf = append(buf, file...)
 		buf = append(buf, ':')
-		buf = append(buf, strconv.Itoa(f.Line)...)
+		buf = strconv.AppendInt(buf, int64(f.Line), 10)
 		buf = append(buf, '\t')
 	}
 
 	// Message
 	buf = append(buf, r.Message...)
 
-	// Attributes
+	// Attributes - optimize common types
 	r.Attrs(func(a slog.Attr) bool {
 		buf = append(buf, ' ')
 		buf = append(buf, a.Key...)
 		buf = append(buf, '=')
-		buf = append(buf, fmt.Sprint(a.Value.Any())...)
+
+		// Optimize common value types
+		switch v := a.Value.Any().(type) {
+		case string:
+			buf = append(buf, v...)
+		case int:
+			buf = strconv.AppendInt(buf, int64(v), 10)
+		case int64:
+			buf = strconv.AppendInt(buf, v, 10)
+		case uint64:
+			buf = strconv.AppendUint(buf, v, 10)
+		case bool:
+			if v {
+				buf = append(buf, "true"...)
+			} else {
+				buf = append(buf, "false"...)
+			}
+		case float64:
+			buf = strconv.AppendFloat(buf, v, 'f', -1, 64)
+		default:
+			buf = append(buf, fmt.Sprint(v)...)
+		}
 		return true
 	})
 
 	buf = append(buf, '\n')
 
-	_, err := os.Stderr.Write(buf)
+	_, err := h.w.Write(buf)
 	return err
 }
 
 func (h *customHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &customHandler{h: h.h.WithAttrs(attrs)}
+	return &customHandler{h: h.h.WithAttrs(attrs), w: h.w}
 }
 
 func (h *customHandler) WithGroup(name string) slog.Handler {
-	return &customHandler{h: h.h.WithGroup(name)}
+	return &customHandler{h: h.h.WithGroup(name), w: h.w}
 }
 
 var (
@@ -192,9 +238,9 @@ func SetLogLevel(str string) error {
 	return nil
 }
 
-// StdLogger returns the standard slog.
-func StdLogger() *stdlog.Logger {
-	return slog.NewLogLogger(slog.Default().Handler(), slog.LevelInfo)
+// SlogLogger returns the default slog logger.
+func SlogLogger() *slog.Logger {
+	return slog.Default()
 }
 
 func (app *App) RunServer(ctx context.Context, kc *Config) error {

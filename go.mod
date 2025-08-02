@@ -6,7 +6,7 @@ require (
 	github.com/Songmu/retry v0.0.1
 	github.com/bmizerany/mc v0.0.0-20180522153755-eeb3d7218919
 	github.com/bradfitz/gomemcache v0.0.0-20170208213004-1952afaa557d
-	github.com/fujiwara/raus v0.2.0
+	github.com/fujiwara/raus v0.3.0
 	github.com/fukata/golang-stats-api-handler v1.0.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	google.golang.org/grpc v1.73.0
