@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	stdlog "log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -31,8 +31,6 @@ func (pc profConfig) enabled() bool {
 	return pc.enablePprof || pc.enableStats
 }
 
-var log *stdlog.Logger
-
 func init() {
 	raus.LockExpires = 600 * time.Second
 }
@@ -48,7 +46,7 @@ func main() {
 	pc := &profConfig{}
 	kc := &katsubushi.Config{}
 
-	flag.UintVar(&workerID, "worker-id", 0, "worker id. muset be unique.")
+	flag.UintVar(&workerID, "worker-id", 0, "worker id. must be unique.")
 	flag.IntVar(&kc.Port, "port", 11212, "port to listen.")
 	flag.StringVar(&kc.Sockpath, "sock", "", "unix domain socket to listen. ignore port option when set this.")
 	flag.DurationVar(&kc.IdleTimeout, "idle-timeout", katsubushi.DefaultIdleTimeout, "connection will be closed if there are no packets over the seconds. 0 means infinite.")
@@ -73,10 +71,9 @@ func main() {
 	}
 
 	if err := katsubushi.SetLogLevel(kc.LogLevel); err != nil {
-		fmt.Println(err)
+		slog.Error("failed to set log level", "level", kc.LogLevel, "error", err)
 		os.Exit(1)
 	}
-	log = katsubushi.StdLogger()
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
@@ -93,21 +90,21 @@ func main() {
 		wg.Add(1)
 		workerID, err = assignWorkerID(ctx, &wg, redisURL, minWorkerID, maxWorkerID)
 		if err != nil {
-			log.Println(err)
+			slog.Error("failed to assign worker-id", "error", err)
 			os.Exit(1)
 		}
 	}
 
 	// for profiling
 	if pc.enabled() {
-		log.Println("Enabling profiler")
+		slog.Info("Enabling profiler")
 		wg.Add(1)
 		go profiler(ctx, cancel, &wg, pc)
 	}
 
 	app, err := katsubushi.New(workerID)
 	if err != nil {
-		log.Println(err)
+		slog.Error("failed to create app", "error", err)
 		os.Exit(1)
 	}
 
@@ -152,11 +149,11 @@ func main() {
 			if errors.Is(err, context.Canceled) || errors.Is(err, http.ErrServerClosed) {
 				continue
 			}
-			log.Println(err)
+			slog.Error("server error", "error", err)
 			code = 1
 		}
 	}
-	log.Println("Shutdown completed")
+	slog.Info("Shutdown completed")
 	os.Exit(code)
 }
 
@@ -169,17 +166,17 @@ func profiler(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
-		log.Println("EnablePprof on /debug/pprof")
+		slog.Info("EnablePprof on /debug/pprof")
 	}
 	if pc.enableStats {
 		mux.HandleFunc("/debug/stats", stats_api.Handler)
-		log.Println("EnableStats on /debug/stats")
+		slog.Info("EnableStats on /debug/stats")
 	}
 	addr := fmt.Sprintf("localhost:%d", pc.debugPort)
-	log.Println("Listening debugger on", addr)
+	slog.Info("Listening debugger on", "addr", addr)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Println(err)
+		slog.Error("failed to listen", "addr", addr, "error", err)
 		return
 	}
 
@@ -189,7 +186,7 @@ func profiler(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup
 	}()
 
 	if err := http.Serve(ln, mux); err != nil {
-		log.Println(err)
+		slog.Error("failed to serve", "error", err)
 		return
 	}
 }
@@ -206,7 +203,7 @@ func signalHandler(ctx context.Context, cancel context.CancelFunc, wg *sync.Wait
 	signal.Notify(sigCh, trapSignals...)
 	select {
 	case sig := <-sigCh:
-		log.Printf("Got signal %s", sig)
+		slog.Info("Got signal", "signal", sig)
 		cancel()
 	case <-ctx.Done():
 	}
@@ -214,7 +211,6 @@ func signalHandler(ctx context.Context, cancel context.CancelFunc, wg *sync.Wait
 
 func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, min, max uint) (uint, error) {
 	defer wg.Done()
-	raus.SetLogger(log)
 	defaultMax := uint((1 << katsubushi.WorkerIDBits) - 1)
 	if min == 0 {
 		min = 1
@@ -228,17 +224,18 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, mi
 	if max > defaultMax {
 		return 0, fmt.Errorf("max-worker-id must be smaller than %d", defaultMax)
 	}
-	log.Printf("Waiting for worker-id automated assignment (between %d and %d) with %s", min, max, redisURL)
+	slog.Info("Waiting for worker-id automated assignment", "min", min, "max", max, "redisURL", redisURL)
 	r, err := raus.New(redisURL, min, max)
 	if err != nil {
-		log.Println("Failed to assign worker-id", err)
+		slog.Error("failed to assign worker-id", "error", err)
 		return 0, err
 	}
+	r.SetSlogLogger(katsubushi.SlogLogger())
 	id, ch, err := r.Get(ctx)
 	if err != nil {
 		return 0, err
 	}
-	log.Printf("Assigned worker-id: %d", id)
+	slog.Info("Assigned worker-id", "id", id)
 
 	wg.Add(1)
 	go func() {
