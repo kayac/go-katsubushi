@@ -34,7 +34,7 @@ func TestBResponseBytes(t *testing.T) {
 		0x64,
 	}
 
-	if bytes.Compare(actual, expected) != 0 {
+	if !bytes.Equal(actual, expected) {
 		t.Errorf("Unextected byte slice: %s", actual)
 	}
 }
@@ -73,19 +73,19 @@ func TestNewBRequest(t *testing.T) {
 			t.Errorf("Unexpected data type: %x", req.dataType)
 		}
 
-		if bytes.Compare(req.vBucket[:], []byte{0x00, 0x00}) != 0 {
+		if !bytes.Equal(req.vBucket[:], []byte{0x00, 0x00}) {
 			t.Errorf("Unexpected VBucket: %x", req.vBucket)
 		}
 
-		if bytes.Compare(req.opaque[:], []byte{0x00, 0x00, 0x00, 0x00}) != 0 {
+		if !bytes.Equal(req.opaque[:], []byte{0x00, 0x00, 0x00, 0x00}) {
 			t.Errorf("Unexpected opaque: %x", req.opaque)
 		}
 
-		if bytes.Compare(req.cas[:], []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) != 0 {
+		if !bytes.Equal(req.cas[:], []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {
 			t.Errorf("Unexpected cas: %x", req.cas)
 		}
 
-		if bytes.Compare(req.extras, []byte{0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x1c, 0x20}) != 0 {
+		if !bytes.Equal(req.extras, []byte{0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x1c, 0x20}) {
 			t.Errorf("Unexpected extras: %x", req.extras)
 		}
 
@@ -200,7 +200,7 @@ func TestNewBRequest(t *testing.T) {
 }
 
 func TestIsBinaryProtocol(t *testing.T) {
-	app := newTestApp(t, nil)
+	app := newTestApp(t)
 
 	binCmd := []byte{
 		0x80, 0x0b, 0x00, 0x00,

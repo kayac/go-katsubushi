@@ -60,7 +60,7 @@ func TestGenerateAnID(t *testing.T) {
 			t.Fatalf("failed to generate id: %s", err)
 		}
 
-		if id < 0 {
+		if ident == 0 {
 			t.Error("invalid id")
 		}
 

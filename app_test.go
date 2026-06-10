@@ -60,7 +60,7 @@ func (g *delayedGenerator) WorkerID() uint {
 	return g.workerID
 }
 
-func newTestApp(t testing.TB, timeout *time.Duration) *App {
+func newTestApp(t testing.TB) *App {
 	app, err := New(getNextWorkerID())
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func newTestAppDelayed(t testing.TB, delay time.Duration) *App {
 }
 
 func newTestAppAndListenTCP(ctx context.Context, t testing.TB, timeout *time.Duration) *App {
-	app := newTestApp(t, timeout)
+	app := newTestApp(t)
 
 	l, _ := app.ListenerTCP("localhost:0")
 	if timeout != nil {
@@ -95,7 +95,7 @@ func newTestAppAndListenTCP(ctx context.Context, t testing.TB, timeout *time.Dur
 }
 
 func newTestAppAndListenSock(ctx context.Context, t testing.TB) (*App, string) {
-	app := newTestApp(t, nil)
+	app := newTestApp(t)
 
 	tmpDir, _ := os.MkdirTemp("", "go-katsubushi-")
 
@@ -320,7 +320,7 @@ STAT get_hits 396
 STAT get_misses 3
 END
 `
-	expected = strings.Replace(expected, "\n", "\r\n", -1)
+	expected = strings.ReplaceAll(expected, "\n", "\r\n")
 	if res := b.String(); res != expected {
 		t.Error("unexpected STATS output", res, expected)
 	}
@@ -491,10 +491,7 @@ func TestAppStatsRaceCondition(t *testing.T) {
 	app := newTestAppAndListenTCP(ctx, t, nil)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		client, err := newTestClient(app.Listener.Addr().String())
 		if err != nil {
 			t.Errorf("Failed to connect to app: %s", err)
@@ -508,12 +505,9 @@ func TestAppStatsRaceCondition(t *testing.T) {
 			}
 			client.Command("GET id")
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		client, err := newTestClient(app.Listener.Addr().String())
 		if err != nil {
 			t.Errorf("Failed to connect to app: %s", err)
@@ -527,7 +521,7 @@ func TestAppStatsRaceCondition(t *testing.T) {
 			}
 			client.Command("STATS")
 		}
-	}()
+	})
 
 	wg.Wait()
 }
@@ -700,7 +694,7 @@ func TestAppBinaryError(t *testing.T) {
 	}
 
 	resp, err := client.Command(cmd)
-	if bytes.Compare(resp, expected) != 0 {
+	if !bytes.Equal(resp, expected) {
 		t.Errorf("invalid error response: %s", hex.Dump(resp))
 	}
 }
@@ -840,7 +834,7 @@ func TestAppBinaryVersion(t *testing.T) {
 	expected = append(expected, versionBytes...)
 
 	resp, err := client.Command(cmd)
-	if bytes.Compare(resp, expected) != 0 {
+	if !bytes.Equal(resp, expected) {
 		t.Errorf("invalid version response: %s", hex.Dump(resp))
 	}
 }
