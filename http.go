@@ -205,6 +205,7 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 		}(u)
 		if err != nil {
 			errs = fmt.Errorf("failed to fetch id from %s: %w", u, err)
+			continue
 		}
 		return id, nil
 	}
@@ -214,7 +215,6 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 // FetchMulti fetches multiple ids from katsubushi via HTTP
 func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 	errs := fmt.Errorf("no servers available")
-	ids := make([]uint64, 0, n)
 	for _, u := range c.urls {
 		ids, err := func(u *url.URL) ([]uint64, error) {
 			u.Path = fmt.Sprintf("/%sids", c.pathPrefix)
@@ -236,23 +236,24 @@ func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 			}()
 			if _, err := io.Copy(b, resp.Body); err != nil {
 				return nil, err
-
 			}
 			bs := bytes.Split(b.Bytes(), []byte("\n"))
 			if len(bs) != n {
-				return nil, err
+				return nil, fmt.Errorf("unexpected number of ids: got %d, want %d", len(bs), n)
 			}
+			ids := make([]uint64, 0, n)
 			for _, b := range bs {
-				if id, err := strconv.ParseUint(string(b), 10, 64); err != nil {
+				id, err := strconv.ParseUint(string(b), 10, 64)
+				if err != nil {
 					return nil, err
-				} else {
-					ids = append(ids, id)
 				}
+				ids = append(ids, id)
 			}
 			return ids, nil
 		}(u)
 		if err != nil {
-			errs = fmt.Errorf("failed to fetch ids from %s: %w", u, errs)
+			errs = fmt.Errorf("failed to fetch ids from %s: %w", u, err)
+			continue
 		}
 		return ids, nil
 	}
