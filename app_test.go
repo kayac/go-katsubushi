@@ -7,11 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,8 +20,8 @@ import (
 
 	"encoding/hex"
 
-	"github.com/bmizerany/mc"
 	"github.com/bradfitz/gomemcache/memcache"
+	mc "github.com/memcachier/mc/v3"
 )
 
 func TestMain(m *testing.M) {
@@ -61,7 +61,7 @@ func (g *delayedGenerator) WorkerID() uint {
 	return g.workerID
 }
 
-func newTestApp(t testing.TB, timeout *time.Duration) *App {
+func newTestApp(t testing.TB) *App {
 	app, err := New(getNextWorkerID())
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +83,7 @@ func newTestAppDelayed(t testing.TB, delay time.Duration) *App {
 }
 
 func newTestAppAndListenTCP(ctx context.Context, t testing.TB, timeout *time.Duration) *App {
-	app := newTestApp(t, timeout)
+	app := newTestApp(t)
 
 	l, _ := app.ListenerTCP("localhost:0")
 	if timeout != nil {
@@ -96,9 +96,9 @@ func newTestAppAndListenTCP(ctx context.Context, t testing.TB, timeout *time.Dur
 }
 
 func newTestAppAndListenSock(ctx context.Context, t testing.TB) (*App, string) {
-	app := newTestApp(t, nil)
+	app := newTestApp(t)
 
-	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
+	tmpDir, _ := os.MkdirTemp("", "go-katsubushi-")
 
 	l, _ := app.ListenerSock(filepath.Join(tmpDir, "katsubushi.sock"))
 	go app.Serve(ctx, l)
@@ -266,7 +266,7 @@ func BenchmarkApp(b *testing.B) {
 
 func BenchmarkAppSock(b *testing.B) {
 	app, _ := New(getNextWorkerID())
-	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
+	tmpDir, _ := os.MkdirTemp("", "go-katsubushi-")
 	defer os.RemoveAll(tmpDir)
 
 	l, _ := app.ListenerSock(filepath.Join(tmpDir, "katsubushi.sock"))
@@ -321,7 +321,7 @@ STAT get_hits 396
 STAT get_misses 3
 END
 `
-	expected = strings.Replace(expected, "\n", "\r\n", -1)
+	expected = strings.ReplaceAll(expected, "\n", "\r\n")
 	if res := b.String(); res != expected {
 		t.Error("unexpected STATS output", res, expected)
 	}
@@ -492,13 +492,11 @@ func TestAppStatsRaceCondition(t *testing.T) {
 	app := newTestAppAndListenTCP(ctx, t, nil)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		client, err := newTestClient(app.Listener.Addr().String())
 		if err != nil {
-			t.Fatalf("Failed to connect to app: %s", err)
+			t.Errorf("Failed to connect to app: %s", err)
+			return
 		}
 		for {
 			select {
@@ -508,15 +506,13 @@ func TestAppStatsRaceCondition(t *testing.T) {
 			}
 			client.Command("GET id")
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		client, err := newTestClient(app.Listener.Addr().String())
 		if err != nil {
-			t.Fatalf("Failed to connect to app: %s", err)
+			t.Errorf("Failed to connect to app: %s", err)
+			return
 		}
 		for {
 			select {
@@ -526,7 +522,7 @@ func TestAppStatsRaceCondition(t *testing.T) {
 			}
 			client.Command("STATS")
 		}
-	}()
+	})
 
 	wg.Wait()
 }
@@ -593,15 +589,25 @@ func newTestClientBinarySock(path string) (*testClientBinary, error) {
 	return &testClientBinary{conn}, nil
 }
 
+// newBinaryClient returns a memcached binary protocol client for interop testing.
+// Retries and failover are disabled so that a server-side idle disconnect surfaces
+// as an error instead of being masked by a transparent reconnect.
+func newBinaryClient(network, addr string) *mc.Client {
+	if network == "unix" {
+		addr = "unix://" + addr
+	}
+	config := mc.DefaultConfig()
+	config.Retries = 1
+	config.Failover = false
+	return mc.NewMCwithConfig(addr, "", "", config)
+}
+
 func TestAppBinary(t *testing.T) {
 	ctx := context.Background()
 	app := newTestAppAndListenTCP(ctx, t, nil)
-	cn, err := mc.Dial("tcp", app.Listener.Addr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
+	cn := newBinaryClient("tcp", app.Listener.Addr().String())
 
-	val, cas, flags, err := cn.Get("hoge")
+	val, flags, cas, err := cn.Get("hoge")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -624,15 +630,18 @@ func TestAppBinary(t *testing.T) {
 }
 
 func TestAppBinarySock(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// memcachier/mc dials with net.DialTimeout, which fails on AF_UNIX
+		// sockets on Windows. The unix socket serving itself is covered by
+		// TestAppSock, which uses gomemcache.
+		t.Skip("memcachier/mc cannot dial AF_UNIX sockets on Windows")
+	}
 	ctx := context.Background()
 	app, tmpDir := newTestAppAndListenSock(ctx, t)
-	cn, err := mc.Dial("unix", app.Listener.Addr().String())
+	cn := newBinaryClient("unix", app.Listener.Addr().String())
 	defer os.RemoveAll(tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	value, cas, flags, err := cn.Get("hoge")
+	value, flags, cas, err := cn.Get("hoge")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -692,7 +701,7 @@ func TestAppBinaryError(t *testing.T) {
 	}
 
 	resp, err := client.Command(cmd)
-	if bytes.Compare(resp, expected) != 0 {
+	if !bytes.Equal(resp, expected) {
 		t.Errorf("invalid error response: %s", hex.Dump(resp))
 	}
 }
@@ -702,10 +711,7 @@ func TestAppBinaryIdleTimeout(t *testing.T) {
 	timeout := 1 * time.Second
 	app := newTestAppAndListenTCP(ctx, t, &timeout)
 
-	cn, err := mc.Dial("tcp", app.Listener.Addr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
+	cn := newBinaryClient("tcp", app.Listener.Addr().String())
 
 	t.Log("Before timeout")
 	{
@@ -769,7 +775,7 @@ func BenchmarkAppBinary(b *testing.B) {
 
 func BenchmarkAppBinarySock(b *testing.B) {
 	app, _ := New(getNextWorkerID())
-	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
+	tmpDir, _ := os.MkdirTemp("", "go-katsubushi-")
 	defer os.RemoveAll(tmpDir)
 
 	l, _ := app.ListenerSock(filepath.Join(tmpDir, "katsubushi.sock"))
@@ -835,7 +841,7 @@ func TestAppBinaryVersion(t *testing.T) {
 	expected = append(expected, versionBytes...)
 
 	resp, err := client.Command(cmd)
-	if bytes.Compare(resp, expected) != 0 {
+	if !bytes.Equal(resp, expected) {
 		t.Errorf("invalid version response: %s", hex.Dump(resp))
 	}
 }

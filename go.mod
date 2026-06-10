@@ -1,29 +1,26 @@
 module github.com/kayac/go-katsubushi/v2
 
-go 1.24.0
+go 1.25.0
 
 require (
-	github.com/Songmu/retry v0.0.1
-	github.com/bmizerany/mc v0.0.0-20180522153755-eeb3d7218919
-	github.com/bradfitz/gomemcache v0.0.0-20170208213004-1952afaa557d
-	github.com/fujiwara/raus v0.3.0
+	github.com/Songmu/retry v0.1.0
+	github.com/bradfitz/gomemcache v0.0.0-20260422231931-4d751bb6e37c
+	github.com/fujiwara/raus v0.4.0
 	github.com/fukata/golang-stats-api-handler v1.0.0
-	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
-	google.golang.org/grpc v1.79.3
-	google.golang.org/protobuf v1.36.10
+	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+	github.com/memcachier/mc/v3 v3.0.3
+	google.golang.org/grpc v1.81.1
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
-	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/kr/pretty v0.3.0 // indirect
-	github.com/redis/go-redis/v9 v9.11.0 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
-	golang.org/x/net v0.48.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
-	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
+	github.com/redis/go-redis/v9 v9.20.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

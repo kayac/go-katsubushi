@@ -148,7 +148,6 @@ func (h *customHandler) WithGroup(name string) slog.Handler {
 var (
 	respError         = []byte("ERROR\r\n")
 	memdSep           = []byte("\r\n")
-	memdSepLen        = len(memdSep)
 	memdSpc           = []byte(" ")
 	memdGets          = []byte("GETS")
 	memdValue         = []byte("VALUE")
