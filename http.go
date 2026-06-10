@@ -151,7 +151,7 @@ func NewHTTPClient(urls []string, pathPrefix string) (*HTTPClient, error) {
 			Timeout: DefaultClientTimeout,
 		},
 		pool: &sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return new(bytes.Buffer)
 			},
 		},

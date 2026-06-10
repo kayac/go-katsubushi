@@ -2,6 +2,7 @@ package katsubushi
 
 import (
 	"errors"
+	"slices"
 	"sync"
 	"time"
 )
@@ -47,10 +48,8 @@ func checkWorkerID(id uint) error {
 		return ErrInvalidWorkerID
 	}
 
-	for _, otherID := range workerIDPool {
-		if id == otherID {
-			return ErrDuplicatedWorkerID
-		}
+	if slices.Contains(workerIDPool, id) {
+		return ErrDuplicatedWorkerID
 	}
 
 	return nil

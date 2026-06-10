@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-var nextWorkerID uint32
+var nextWorkerID atomic.Uint32
 
 func getNextWorkerID() uint {
-	return uint(atomic.AddUint32(&nextWorkerID, 1))
+	return uint(nextWorkerID.Add(1))
 }
 
 func TestInvalidWorkerID(t *testing.T) {
@@ -94,7 +94,7 @@ func TestGenerateSomeIDs(t *testing.T) {
 	g, _ := NewGenerator(getNextWorkerID())
 	ids := []uint64{}
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		id, err := g.NextID()
 		if err != nil {
 			t.Fatalf("failed to generate id: %s", err)

@@ -107,7 +107,7 @@ func (c *memcacheClient) GetMulti(ctx context.Context, keys []string) ([]uint64,
 	}
 
 	ids := make([]uint64, 0, len(keys))
-	for i := 0; i < len(keys); i++ {
+	for range keys {
 		id, err := readValue(c.rw.Reader)
 		if err != nil {
 			c.close()
