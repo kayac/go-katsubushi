@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -629,6 +630,12 @@ func TestAppBinary(t *testing.T) {
 }
 
 func TestAppBinarySock(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// memcachier/mc dials with net.DialTimeout, which fails on AF_UNIX
+		// sockets on Windows. The unix socket serving itself is covered by
+		// TestAppSock, which uses gomemcache.
+		t.Skip("memcachier/mc cannot dial AF_UNIX sockets on Windows")
+	}
 	ctx := context.Background()
 	app, tmpDir := newTestAppAndListenSock(ctx, t)
 	cn := newBinaryClient("unix", app.Listener.Addr().String())
