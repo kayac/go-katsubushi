@@ -1,6 +1,6 @@
 module github.com/kayac/go-katsubushi/v2
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/Songmu/retry v0.0.1
@@ -9,8 +9,8 @@ require (
 	github.com/fujiwara/raus v0.3.0
 	github.com/fukata/golang-stats-api-handler v1.0.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
-	google.golang.org/grpc v1.73.0
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/grpc v1.79.3
+	google.golang.org/protobuf v1.36.10
 )
 
 require (
@@ -21,9 +21,9 @@ require (
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/redis/go-redis/v9 v9.11.0 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
-	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
