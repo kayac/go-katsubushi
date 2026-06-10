@@ -498,7 +498,8 @@ func TestAppStatsRaceCondition(t *testing.T) {
 
 		client, err := newTestClient(app.Listener.Addr().String())
 		if err != nil {
-			t.Fatalf("Failed to connect to app: %s", err)
+			t.Errorf("Failed to connect to app: %s", err)
+			return
 		}
 		for {
 			select {
@@ -516,7 +517,8 @@ func TestAppStatsRaceCondition(t *testing.T) {
 
 		client, err := newTestClient(app.Listener.Addr().String())
 		if err != nil {
-			t.Fatalf("Failed to connect to app: %s", err)
+			t.Errorf("Failed to connect to app: %s", err)
+			return
 		}
 		for {
 			select {
