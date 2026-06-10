@@ -52,7 +52,7 @@ func TestGRPCSingle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		res, err := client.Fetch(context.Background(), &grpc.FetchRequest{})
 		if err != nil {
 			t.Fatal(err)
@@ -70,7 +70,7 @@ func TestGRPCMulti(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		res, err := client.FetchMulti(context.Background(), &grpc.FetchMultiRequest{N: 10})
 		if err != nil {
 			t.Fatal(err)

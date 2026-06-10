@@ -9,8 +9,7 @@ import (
 )
 
 func BenchmarkClientFetch(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 	app := newTestAppAndListenTCP(ctx, b, nil)
 
 	b.ResetTimer()
@@ -30,8 +29,7 @@ func BenchmarkClientFetch(b *testing.B) {
 }
 
 func BenchmarkGoMemcacheFetch(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 	app := newTestAppAndListenTCP(ctx, b, nil)
 
 	b.ResetTimer()
@@ -48,8 +46,7 @@ func BenchmarkGoMemcacheFetch(b *testing.B) {
 }
 
 func TestClientFetch(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	app := newTestAppAndListenTCP(ctx, t, nil)
 	c := NewClient(app.Listener.Addr().String())
 
@@ -64,8 +61,7 @@ func TestClientFetch(t *testing.T) {
 }
 
 func TestClientMulti(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	app := newTestAppAndListenTCP(ctx, t, nil)
 	c := NewClient(app.Listener.Addr().String())
 
@@ -85,14 +81,13 @@ func TestClientMulti(t *testing.T) {
 }
 
 func TestClientFetchRetry(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	to := time.Second
 	app := newTestAppAndListenTCP(ctx, t, &to)
 
 	c := NewClient(app.Listener.Addr().String())
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		id, err := c.Fetch(context.Background())
 		if err != nil {
 			t.Fatal(err)
@@ -110,8 +105,7 @@ func TestClientFetchBackup(t *testing.T) {
 	defer cancel1()
 	app1 := newTestAppAndListenTCP(ctx1, t, nil)
 
-	ctx2, cancel2 := context.WithCancel(context.Background())
-	defer cancel2()
+	ctx2 := t.Context()
 	app2 := newTestAppAndListenTCP(ctx2, t, nil)
 
 	c := NewClient(
@@ -224,8 +218,7 @@ func TestClientFailBackupMulti(t *testing.T) {
 }
 
 func TestClientTimeout(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	app := newTestAppDelayed(t, time.Second)
 	l, _ := app.ListenerTCP("localhost:0")

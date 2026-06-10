@@ -3,7 +3,6 @@ package katsubushi
 import (
 	"net"
 	"sync"
-	"sync/atomic"
 )
 
 func (app *App) wrapListener(l net.Listener) net.Listener {
@@ -27,8 +26,8 @@ func (l *monitListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	atomic.AddInt64(&l.app.currConnections, 1)
-	atomic.AddInt64(&l.app.totalConnections, 1)
+	l.app.currConnections.Add(1)
+	l.app.totalConnections.Add(1)
 	return &monitConn{conn, l.app, &sync.Once{}}, nil
 }
 
@@ -40,7 +39,7 @@ type monitConn struct {
 
 func (c *monitConn) Close() error {
 	c.once.Do(func() {
-		atomic.AddInt64(&c.app.currConnections, -1)
+		c.app.currConnections.Add(-1)
 	})
 	return c.Conn.Close()
 }

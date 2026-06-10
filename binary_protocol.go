@@ -327,7 +327,7 @@ func (cmd *MemdBCmdStat) Execute(app *App, w io.Writer) error {
 
 func (s MemdStats) writeBinaryTo(w io.Writer, opaque [4]byte) error {
 	statsValue := reflect.ValueOf(s)
-	statsType := reflect.TypeOf(s)
+	statsType := reflect.TypeFor[MemdStats]()
 	for i := 0; i < statsType.NumField(); i++ {
 		field := statsType.Field(i)
 		tag := field.Tag.Get("memd")

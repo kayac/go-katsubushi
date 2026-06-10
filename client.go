@@ -59,7 +59,7 @@ func (c *Client) Fetch(ctx context.Context) (uint64, error) {
 func (c *Client) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 	keys := make([]string, 0, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		keys = append(keys, strconv.Itoa(i))
 	}
 

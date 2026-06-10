@@ -170,7 +170,7 @@ func TestHTTPSingleCS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		id, err := client.Fetch(context.Background())
 		if err != nil {
 			t.Fatal(err)
@@ -188,7 +188,7 @@ func TestHTTPMultiCS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		ids, err := client.FetchMulti(context.Background(), 10)
 		if err != nil {
 			t.Fatal(err)

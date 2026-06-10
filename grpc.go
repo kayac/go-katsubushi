@@ -80,16 +80,16 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	))
 	grpc.RegisterGeneratorServer(s, svGen)
 	grpc.RegisterStatsServer(s, svStats)
-	
+
 	// Register health check service
 	healthServer := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
-	
+
 	// Set health status for overall server and individual services
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	healthServer.SetServingStatus(grpc.Generator_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
 	healthServer.SetServingStatus(grpc.Stats_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
-	
+
 	reflection.Register(s)
 
 	listener := cfg.GRPCListener
@@ -111,7 +111,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	return s.Serve(listener)
 }
 
-func grpcRecoveryFunc(p interface{}) error {
+func grpcRecoveryFunc(p any) error {
 	slog.Error("panic", "value", p)
 	return status.Errorf(codes.Internal, "Unexpected error")
 }

@@ -170,7 +170,7 @@ type App struct {
 	Listener net.Listener
 
 	gen     Generator
-	readyCh chan interface{}
+	readyCh chan any
 
 	// App will disconnect connection if there are no commands until idleTimeout.
 	idleTimeout time.Duration
@@ -178,8 +178,8 @@ type App struct {
 	startedAt time.Time
 
 	// these values are accessed atomically
-	currConnections  int64
-	totalConnections int64
+	currConnections  atomic.Int64
+	totalConnections atomic.Int64
 	cmdGet           int64
 	getHits          int64
 	getMisses        int64
@@ -194,7 +194,7 @@ func New(workerID uint) (*App, error) {
 	return &App{
 		gen:       gen,
 		startedAt: time.Now(),
-		readyCh:   make(chan interface{}),
+		readyCh:   make(chan any),
 	}, nil
 }
 
@@ -203,7 +203,7 @@ func NewAppWithGenerator(gen Generator, workerID uint) (*App, error) {
 	return &App{
 		gen:       gen,
 		startedAt: time.Now(),
-		readyCh:   make(chan interface{}),
+		readyCh:   make(chan any),
 	}, nil
 }
 
@@ -314,7 +314,7 @@ func (app *App) Serve(ctx context.Context, l net.Listener) error {
 }
 
 // Ready returns a channel which become readable when the app can accept connections.
-func (app *App) Ready() chan interface{} {
+func (app *App) Ready() chan any {
 	return app.readyCh
 }
 
@@ -398,8 +398,8 @@ func (app *App) GetStats() MemdStats {
 		Uptime:           int64(now.Sub(app.startedAt).Seconds()),
 		Time:             time.Now().Unix(),
 		Version:          Version,
-		CurrConnections:  atomic.LoadInt64(&app.currConnections),
-		TotalConnections: atomic.LoadInt64(&app.totalConnections),
+		CurrConnections:  app.currConnections.Load(),
+		TotalConnections: app.totalConnections.Load(),
 		CmdGet:           atomic.LoadInt64(&app.cmdGet),
 		GetHits:          atomic.LoadInt64(&app.getHits),
 		GetMisses:        atomic.LoadInt64(&app.getMisses),
@@ -568,7 +568,7 @@ func (v MemdValue) WriteTo(w io.Writer) (int64, error) {
 // WriteTo writes result of STATS command to io.Writer.
 func (s MemdStats) WriteTo(w io.Writer) (int64, error) {
 	statsValue := reflect.ValueOf(s)
-	statsType := reflect.TypeOf(s)
+	statsType := reflect.TypeFor[MemdStats]()
 	for i := 0; i < statsType.NumField(); i++ {
 		w.Write(memdStatHeader)
 		field := statsType.Field(i)
