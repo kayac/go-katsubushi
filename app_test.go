@@ -20,8 +20,8 @@ import (
 
 	"encoding/hex"
 
-	"github.com/bmizerany/mc"
 	"github.com/bradfitz/gomemcache/memcache"
+	mc "github.com/memcachier/mc/v3"
 )
 
 func TestMain(m *testing.M) {
@@ -593,15 +593,25 @@ func newTestClientBinarySock(path string) (*testClientBinary, error) {
 	return &testClientBinary{conn}, nil
 }
 
+// newBinaryClient returns a memcached binary protocol client for interop testing.
+// Retries and failover are disabled so that a server-side idle disconnect surfaces
+// as an error instead of being masked by a transparent reconnect.
+func newBinaryClient(network, addr string) *mc.Client {
+	if network == "unix" {
+		addr = "unix://" + addr
+	}
+	config := mc.DefaultConfig()
+	config.Retries = 1
+	config.Failover = false
+	return mc.NewMCwithConfig(addr, "", "", config)
+}
+
 func TestAppBinary(t *testing.T) {
 	ctx := context.Background()
 	app := newTestAppAndListenTCP(ctx, t, nil)
-	cn, err := mc.Dial("tcp", app.Listener.Addr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
+	cn := newBinaryClient("tcp", app.Listener.Addr().String())
 
-	val, cas, flags, err := cn.Get("hoge")
+	val, flags, cas, err := cn.Get("hoge")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -626,13 +636,10 @@ func TestAppBinary(t *testing.T) {
 func TestAppBinarySock(t *testing.T) {
 	ctx := context.Background()
 	app, tmpDir := newTestAppAndListenSock(ctx, t)
-	cn, err := mc.Dial("unix", app.Listener.Addr().String())
+	cn := newBinaryClient("unix", app.Listener.Addr().String())
 	defer os.RemoveAll(tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	value, cas, flags, err := cn.Get("hoge")
+	value, flags, cas, err := cn.Get("hoge")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -702,10 +709,7 @@ func TestAppBinaryIdleTimeout(t *testing.T) {
 	timeout := 1 * time.Second
 	app := newTestAppAndListenTCP(ctx, t, &timeout)
 
-	cn, err := mc.Dial("tcp", app.Listener.Addr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
+	cn := newBinaryClient("tcp", app.Listener.Addr().String())
 
 	t.Log("Before timeout")
 	{
