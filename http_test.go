@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
@@ -202,6 +203,56 @@ func TestHTTPMultiCS(t *testing.T) {
 			}
 		}
 		t.Logf("HTTP fetched IDs: %v", ids)
+	}
+}
+
+func TestHTTPFailover(t *testing.T) {
+	// The first server always fails; the client must fail over to the healthy one.
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer bad.Close()
+	good := fmt.Sprintf("http://localhost:%d", httpPort)
+
+	client, err := katsubushi.NewHTTPClient([]string{bad.URL, good}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := client.Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("Fetch should fail over to the healthy server: %v", err)
+	}
+	if id == 0 {
+		t.Fatal("id should not be 0")
+	}
+
+	ids, err := client.FetchMulti(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("FetchMulti should fail over to the healthy server: %v", err)
+	}
+	if len(ids) != 10 {
+		t.Fatalf("ids should contain 10 elements: %v", ids)
+	}
+}
+
+func TestHTTPAllServersFail(t *testing.T) {
+	// When every server fails, an error must be returned (not a zero value).
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer bad.Close()
+
+	client, err := katsubushi.NewHTTPClient([]string{bad.URL}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if id, err := client.Fetch(context.Background()); err == nil {
+		t.Fatalf("Fetch should return an error when all servers fail, got id=%d", id)
+	}
+	if ids, err := client.FetchMulti(context.Background(), 10); err == nil {
+		t.Fatalf("FetchMulti should return an error when all servers fail, got ids=%v", ids)
 	}
 }
 
