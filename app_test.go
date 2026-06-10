@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -98,7 +97,7 @@ func newTestAppAndListenTCP(ctx context.Context, t testing.TB, timeout *time.Dur
 func newTestAppAndListenSock(ctx context.Context, t testing.TB) (*App, string) {
 	app := newTestApp(t, nil)
 
-	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
+	tmpDir, _ := os.MkdirTemp("", "go-katsubushi-")
 
 	l, _ := app.ListenerSock(filepath.Join(tmpDir, "katsubushi.sock"))
 	go app.Serve(ctx, l)
@@ -266,7 +265,7 @@ func BenchmarkApp(b *testing.B) {
 
 func BenchmarkAppSock(b *testing.B) {
 	app, _ := New(getNextWorkerID())
-	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
+	tmpDir, _ := os.MkdirTemp("", "go-katsubushi-")
 	defer os.RemoveAll(tmpDir)
 
 	l, _ := app.ListenerSock(filepath.Join(tmpDir, "katsubushi.sock"))
@@ -775,7 +774,7 @@ func BenchmarkAppBinary(b *testing.B) {
 
 func BenchmarkAppBinarySock(b *testing.B) {
 	app, _ := New(getNextWorkerID())
-	tmpDir, _ := ioutil.TempDir("", "go-katsubushi-")
+	tmpDir, _ := os.MkdirTemp("", "go-katsubushi-")
 	defer os.RemoveAll(tmpDir)
 
 	l, _ := app.ListenerSock(filepath.Join(tmpDir, "katsubushi.sock"))
