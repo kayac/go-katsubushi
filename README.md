@@ -17,12 +17,10 @@ END
 
 ## Installation
 
-Download from [releases](https://github.com/kayac/go-katsubushi/releases) or build from source code.
+Download from [releases](https://github.com/kayac/go-katsubushi/releases) or install with `go install`.
 
 ```
-$ go get github.com/kayac/go-katsubushi/v2
-$ cd $GOPATH/github.com/kayac/go-katsubushi
-make
+$ go install github.com/kayac/go-katsubushi/v2/cmd/katsubushi@latest
 ```
 
 ## Docker image
@@ -40,9 +38,8 @@ $ docker run -p 11212:11212 katsubushi/katsubushi -redis redis://your.redis.host
 ## Usage
 
 ```
-$ cd $GOPATH/github.com/kayac/go-katsubushi/cmd/katsubushi
-./katsubushi -worker-id=1 -port=7238
-./katsubushi -worker-id=1 -sock=/path/to/unix-domain.sock
+$ katsubushi -worker-id=1 -port=7238
+$ katsubushi -worker-id=1 -sock=/path/to/unix-domain.sock
 ```
 
 ## Protocol
@@ -134,7 +131,7 @@ When `Accept` HTTP header is 'application/json', katsubushi will return an IDs a
 {"ids":["1025442579472195584","1025442579472195585","1025442579472195586"]}
 ```
 
-Otherwise, katsubushi will return ID as text format delimiterd with "\n".
+Otherwise, katsubushi will return ID as text format delimited with "\n".
 
 ```
 1025442579472195584
@@ -262,7 +259,7 @@ At least one of `-port`, `-sock`, `-http-port` or `-grpc-port` must be enabled.
 ### -sock
 
 Optional.
-Path of unix doamin socket.
+Path of unix domain socket.
 
 ### -idle-timeout
 
@@ -300,7 +297,7 @@ Endpoint is `/debug/stats`.
 
 Optional.
 Port number for listen http used for `pprof` and `stats` API.
-Defalut value is `8080`.
+Default value is `8080`.
 
 ### -http-port
 
