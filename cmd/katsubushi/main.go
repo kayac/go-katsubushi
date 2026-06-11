@@ -110,36 +110,30 @@ func main() {
 
 	// main server
 	var errs []error
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if err := app.RunServer(ctx, kc); err != nil {
 			errs = append(errs, err)
 			cancel()
 		}
-	}()
+	})
 
 	// http server
 	if kc.HTTPPort != 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if err := app.RunHTTPServer(ctx, kc); err != nil {
 				errs = append(errs, err)
 				cancel()
 			}
-		}()
+		})
 	}
 
 	if kc.GRPCPort != 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if err := app.RunGRPCServer(ctx, kc); err != nil {
 				errs = append(errs, err)
 				cancel()
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -225,6 +219,7 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, mi
 		return 0, fmt.Errorf("max-worker-id must be smaller than %d", defaultMax)
 	}
 	slog.Info("Waiting for worker-id automated assignment", "min", min, "max", max, "redisURL", redisURL)
+	raus.SubscribeTimeout = 0 // skip Discovery
 	r, err := raus.New(redisURL, min, max)
 	if err != nil {
 		slog.Error("failed to assign worker-id", "error", err)
@@ -237,9 +232,7 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, mi
 	}
 	slog.Info("Assigned worker-id", "id", id)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err, more := <-ch
 		if err != nil {
 			panic(err)
@@ -247,7 +240,7 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, mi
 		if !more {
 			// shutdown
 		}
-	}()
+	})
 	return id, nil
 }
 
