@@ -48,7 +48,7 @@ func main() {
 	kc := &katsubushi.Config{}
 
 	flag.UintVar(&workerID, "worker-id", 0, "worker id. must be unique.")
-	flag.IntVar(&kc.Port, "port", 11212, "port to listen.")
+	flag.IntVar(&kc.Port, "port", 11212, "port to listen. 0 means disable.")
 	flag.StringVar(&kc.Sockpath, "sock", "", "unix domain socket to listen. ignore port option when set this.")
 	flag.DurationVar(&kc.IdleTimeout, "idle-timeout", katsubushi.DefaultIdleTimeout, "connection will be closed if there are no packets over the seconds. 0 means infinite.")
 	flag.StringVar(&kc.LogLevel, "log-level", "info", "log level (panic, fatal, error, warn, info = Default, debug)")
@@ -74,6 +74,11 @@ func main() {
 
 	if err := katsubushi.SetLogLevel(kc.LogLevel); err != nil {
 		slog.Error("failed to set log level", "level", kc.LogLevel, "error", err)
+		os.Exit(1)
+	}
+
+	if kc.Port == 0 && kc.Sockpath == "" && kc.HTTPPort == 0 && kc.GRPCPort == 0 {
+		fmt.Println("no server is enabled. please set -port, -sock, -http-port or -grpc-port")
 		os.Exit(1)
 	}
 
@@ -120,7 +125,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// main server
 	var errs []error
 	var errsMu sync.Mutex
 	recordErr := func(err error) {
@@ -128,12 +132,26 @@ func main() {
 		defer errsMu.Unlock()
 		errs = append(errs, err)
 	}
-	wg.Go(func() {
-		if err := app.RunServer(ctx, kc); err != nil {
-			recordErr(err)
-			cancel()
+
+	// memcached compatible server
+	if kc.Port != 0 || kc.Sockpath != "" {
+		wg.Go(func() {
+			if err := app.RunServer(ctx, kc); err != nil {
+				recordErr(err)
+				cancel()
+			}
+		})
+	} else {
+		// Serve() logs them when the memcached compatible server is enabled.
+		idFormat := "default"
+		if jsSafeID {
+			idFormat = "js-safe"
 		}
-	})
+		slog.Info("Memcached compatible server is disabled",
+			"worker_id", uint64(workerID),
+			"id_format", idFormat,
+		)
+	}
 
 	// http server
 	if kc.HTTPPort != 0 {

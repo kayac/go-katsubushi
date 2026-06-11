@@ -242,8 +242,10 @@ If we use multi katsubushi clusters, worker-id range for each clusters must not 
 ### -port
 
 Optional.
-Port number used for connection.
+Port number of the memcached compatible server.
 Default value is `11212`.
+`0` means disable (e.g. to serve the HTTP or gRPC server only).
+At least one of `-port`, `-sock`, `-http-port` or `-grpc-port` must be enabled.
 
 ### -sock
 
