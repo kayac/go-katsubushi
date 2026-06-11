@@ -195,11 +195,14 @@ func (g *generator) timestamp() uint64 {
 }
 
 func (g *generator) waitUntilNextTick(ts uint64) uint64 {
+	// sleep for 1/100 of the timestamp unit not to burn CPU.
+	// e.g. 10us for 1ms unit, 100us for 10ms unit.
+	interval := g.spec.timestampUnit / 100
 	next := g.timestamp()
 
 	for next <= ts {
+		time.Sleep(interval)
 		next = g.timestamp()
-		time.Sleep(50 * time.Nanosecond)
 	}
 
 	return next
