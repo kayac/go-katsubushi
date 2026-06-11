@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"sync/atomic"
+	"time"
 
 	"github.com/kayac/go-katsubushi/v2/grpc"
 
@@ -101,14 +102,33 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 		}
 	}
 	listener = app.wrapListener(listener)
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		slog.Info("Shutting down gRPC server")
-		s.Stop()
+		stopped := make(chan struct{})
+		go func() {
+			s.GracefulStop()
+			close(stopped)
+		}()
+		select {
+		case <-stopped:
+		case <-time.After(ShutdownTimeout):
+			slog.Warn("Failed to shutdown gRPC server gracefully, stopping forcefully")
+			s.Stop()
+		}
 	}()
 
 	slog.Info("Listening gRPC server", "addr", listener.Addr().String())
-	return s.Serve(listener)
+	err := s.Serve(listener)
+	select {
+	case <-ctx.Done():
+		// Serve returns as soon as the shutdown begins, so wait for it to complete.
+		<-shutdownDone
+	default:
+	}
+	return err
 }
 
 func grpcRecoveryFunc(p any) error {

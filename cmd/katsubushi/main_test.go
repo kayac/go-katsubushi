@@ -51,3 +51,19 @@ func TestEnvToFlag(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyEnvToFlagInvalidValue(t *testing.T) {
+	t.Setenv("KATSUBUSHI_PORT", "abc")
+	var port int
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	fs.IntVar(&port, "port", 11212, "")
+	var gotErr error
+	fs.VisitAll(func(f *flag.Flag) {
+		if err := applyEnvToFlag(f); err != nil {
+			gotErr = err
+		}
+	})
+	if gotErr == nil {
+		t.Error("applyEnvToFlag must return an error for an invalid value")
+	}
+}

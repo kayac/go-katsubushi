@@ -3,6 +3,8 @@ package katsubushi
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -342,5 +344,74 @@ func TestMemdStats_writeBinaryTo(t *testing.T) {
 	}
 	if g, e := w.Bytes(), expect; !reflect.DeepEqual(g, e) {
 		t.Errorf("got: \n%#v,\nexpect: %#v\n", g, e)
+	}
+}
+
+func TestNewBRequestTooLargeBody(t *testing.T) {
+	input := make([]byte, headerSize)
+	input[0] = magicRequest
+	input[1] = opcodeGet
+	binary.BigEndian.PutUint16(input[2:4], 2)                   // key length
+	binary.BigEndian.PutUint32(input[8:12], maxBinaryBodyLen+1) // total body length
+	_, err := newBRequest(bytes.NewReader(input))
+	if err == nil {
+		t.Fatal("newBRequest must return an error for a too large body")
+	}
+	if !strings.Contains(err.Error(), "too large") {
+		t.Errorf("unexpected error: %s", err)
+	}
+}
+
+func TestNewBRequestKeyLenOverflow(t *testing.T) {
+	// keyLen + extraLen overflows uint16 (65535 + 1 = 0).
+	// It must not panic on slicing the body buffer.
+	input := make([]byte, headerSize+maxBinaryBodyLen)
+	input[0] = magicRequest
+	input[1] = opcodeGet
+	binary.BigEndian.PutUint16(input[2:4], 65535)             // key length
+	input[4] = 1                                              // extra length
+	binary.BigEndian.PutUint32(input[8:12], maxBinaryBodyLen) // total body length
+	req, err := newBRequest(bytes.NewReader(input))
+	if err != nil {
+		t.Fatalf("failed to parse request: %s", err)
+	}
+	if len(req.key) != 65535 {
+		t.Errorf("unexpected key length: %d", len(req.key))
+	}
+	if req.value != "" {
+		t.Errorf("unexpected value: %q", req.value)
+	}
+}
+
+type errorGenerator struct{}
+
+func (g errorGenerator) NextID() (uint64, error) { return 0, errors.New("dummy error") }
+func (g errorGenerator) WorkerID() uint          { return 0 }
+
+func TestBinaryGetErrorResponse(t *testing.T) {
+	app, err := NewAppWithGenerator(errorGenerator{}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := &MemdBCmdGet{Name: "GET", Key: "id", Opaque: [4]byte{0x01, 0x02, 0x03, 0x04}}
+	var buf bytes.Buffer
+	if err := cmd.Execute(app, &buf); err != nil {
+		t.Fatalf("Execute must not return an error: %s", err)
+	}
+	b := buf.Bytes()
+	if len(b) != headerSize {
+		t.Fatalf("error response must be a %d bytes binary header: %x", headerSize, b)
+	}
+	if b[0] != magicResponse {
+		t.Errorf("unexpected magic: %x", b[0])
+	}
+	if b[1] != opcodeGet {
+		t.Errorf("unexpected opcode: %x", b[1])
+	}
+	if !bytes.Equal(b[6:8], []byte{0x00, 0x84}) {
+		t.Errorf("status must be Internal Error (0x0084): %x", b[6:8])
+	}
+	if !bytes.Equal(b[12:16], []byte{0x01, 0x02, 0x03, 0x04}) {
+		t.Errorf("opaque must be echoed back: %x", b[12:16])
 	}
 }

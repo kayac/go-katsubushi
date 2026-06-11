@@ -286,6 +286,13 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, mi
 }
 
 func envToFlag(f *flag.Flag) {
+	if err := applyEnvToFlag(f); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+}
+
+func applyEnvToFlag(f *flag.Flag) error {
 	name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 	names := []string{
 		"KATSUBUSHI_" + name,
@@ -294,8 +301,11 @@ func envToFlag(f *flag.Flag) {
 	}
 	for _, name := range names {
 		if s := os.Getenv(name); s != "" {
-			f.Value.Set(s)
+			if err := f.Value.Set(s); err != nil {
+				return fmt.Errorf("invalid value %q in environment variable %s for flag -%s: %w", s, name, f.Name, err)
+			}
 			break
 		}
 	}
+	return nil
 }

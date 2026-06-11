@@ -126,6 +126,8 @@ Otherwise, katsubushi will return ID as text format.
 
 Get multiple IDs.
 
+`n` must be between 1 and 1000. Otherwise, katsubushi returns the 400 Bad Request error.
+
 When `Accept` HTTP header is 'application/json', katsubushi will return an IDs as JSON format as below.
 
 ```json

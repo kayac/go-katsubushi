@@ -30,10 +30,17 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 		Handler: mux,
 	}
 	// shutdown
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		slog.Info("Shutting down HTTP server")
-		s.Shutdown(ctx)
+		// ctx is already canceled here, so use a new context to wait for in-flight requests.
+		sctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+		defer cancel()
+		if err := s.Shutdown(sctx); err != nil {
+			slog.Warn("Failed to shutdown HTTP server gracefully", "error", err)
+		}
 	}()
 
 	listener := cfg.HTTPListener
@@ -46,7 +53,14 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 	}
 	listener = app.wrapListener(listener)
 	slog.Info("Listening HTTP server", "addr", listener.Addr().String())
-	return s.Serve(listener)
+	err := s.Serve(listener)
+	select {
+	case <-ctx.Done():
+		// Serve returns as soon as the shutdown begins, so wait for it to complete.
+		<-shutdownDone
+	default:
+	}
+	return err
 }
 
 func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
@@ -91,8 +105,8 @@ func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	if n > MaxHTTPBulkSize {
-		msg := fmt.Sprintf("too many IDs requested: %d, n should be smaller than %d", n, MaxHTTPBulkSize)
+	if n < 1 || n > MaxHTTPBulkSize {
+		msg := fmt.Sprintf("invalid n: %d, n should be between 1 and %d", n, MaxHTTPBulkSize)
 		slog.Error(msg)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(msg))
@@ -150,6 +164,7 @@ func NewHTTPClient(urls []string, pathPrefix string) (*HTTPClient, error) {
 		client: &http.Client{
 			Timeout: DefaultClientTimeout,
 		},
+		pathPrefix: pathPrefix,
 		pool: &sync.Pool{
 			New: func() any {
 				return new(bytes.Buffer)
@@ -178,8 +193,10 @@ func (c *HTTPClient) SetTimeout(t time.Duration) {
 func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 	errs := fmt.Errorf("no servers available")
 	for _, u := range c.urls {
-		id, err := func(u *url.URL) (uint64, error) {
+		// copy the URL to avoid mutating the shared one
+		id, err := func(u url.URL) (uint64, error) {
 			u.Path = fmt.Sprintf("/%sid", c.pathPrefix)
+			u.RawQuery = ""
 			req, _ := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 			resp, err := c.client.Do(req)
 			if err != nil {
@@ -202,7 +219,7 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 			} else {
 				return id, nil
 			}
-		}(u)
+		}(*u)
 		if err != nil {
 			errs = fmt.Errorf("failed to fetch id from %s: %w", u, err)
 			continue
@@ -216,7 +233,8 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 	errs := fmt.Errorf("no servers available")
 	for _, u := range c.urls {
-		ids, err := func(u *url.URL) ([]uint64, error) {
+		// copy the URL to avoid mutating the shared one
+		ids, err := func(u url.URL) ([]uint64, error) {
 			u.Path = fmt.Sprintf("/%sids", c.pathPrefix)
 			u.RawQuery = fmt.Sprintf("n=%d", n)
 			req, _ := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
@@ -250,7 +268,7 @@ func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 				ids = append(ids, id)
 			}
 			return ids, nil
-		}(u)
+		}(*u)
 		if err != nil {
 			errs = fmt.Errorf("failed to fetch ids from %s: %w", u, err)
 			continue
