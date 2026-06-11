@@ -276,6 +276,10 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, mi
 	wg.Go(func() {
 		err, more := <-ch
 		if err != nil {
+			// raus reports an error when the worker id lease is lost.
+			// Continuing to generate IDs without the lease may cause
+			// duplicated worker ids, so panic intentionally to stop
+			// the process immediately.
 			panic(err)
 		}
 		if !more {
