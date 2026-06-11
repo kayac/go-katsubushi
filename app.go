@@ -168,8 +168,9 @@ var (
 type App struct {
 	Listener net.Listener
 
-	gen     Generator
-	readyCh chan any
+	gen      Generator
+	idFormat string
+	readyCh  chan any
 
 	// App will disconnect connection if there are no commands until idleTimeout.
 	idleTimeout time.Duration
@@ -190,20 +191,35 @@ func New(workerID uint) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &App{
-		gen:       gen,
-		startedAt: time.Now(),
-		readyCh:   make(chan any),
-	}, nil
+	return newApp(gen), nil
+}
+
+// NewJSSafe create and returns new App instance which generates IDs in the JS-safe format.
+// Generated IDs fit within 2^53-1 (Number.MAX_SAFE_INTEGER in JavaScript).
+func NewJSSafe(workerID uint) (*App, error) {
+	gen, err := NewJSSafeGenerator(workerID)
+	if err != nil {
+		return nil, err
+	}
+	return newApp(gen), nil
 }
 
 // NewAppWithGenerator create and returns new App instance with specified Generator.
 func NewAppWithGenerator(gen Generator, workerID uint) (*App, error) {
+	return newApp(gen), nil
+}
+
+func newApp(gen Generator) *App {
+	idFormat := "custom"
+	if g, ok := gen.(interface{ formatName() string }); ok {
+		idFormat = g.formatName()
+	}
 	return &App{
 		gen:       gen,
+		idFormat:  idFormat,
 		startedAt: time.Now(),
 		readyCh:   make(chan any),
-	}, nil
+	}
 }
 
 func init() {
@@ -283,6 +299,7 @@ func (app *App) ListenerTCP(addr string) (net.Listener, error) {
 func (app *App) Serve(ctx context.Context, l net.Listener) error {
 	slog.Info("Listening server at " + l.Addr().String())
 	slog.Info("Worker ID = " + strconv.FormatUint(uint64(app.gen.WorkerID()), 10))
+	slog.Info("ID format = " + app.idFormat)
 
 	app.Listener = l
 	close(app.readyCh)

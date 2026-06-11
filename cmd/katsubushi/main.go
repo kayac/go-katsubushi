@@ -42,6 +42,7 @@ func main() {
 		minWorkerID uint
 		maxWorkerID uint
 		workerID    uint
+		jsSafeID    bool
 	)
 	pc := &profConfig{}
 	kc := &katsubushi.Config{}
@@ -62,6 +63,7 @@ func main() {
 	flag.StringVar(&redisURL, "redis", "", "URL of Redis for automated worker id allocation")
 	flag.UintVar(&minWorkerID, "min-worker-id", 0, "minimum automated worker id")
 	flag.UintVar(&maxWorkerID, "max-worker-id", 0, "maximum automated worker id")
+	flag.BoolVar(&jsSafeID, "js-safe-id", false, "generate IDs that fit within 2^53-1 (Number.MAX_SAFE_INTEGER in JavaScript)")
 	flag.VisitAll(envToFlag)
 	flag.Parse()
 
@@ -81,6 +83,10 @@ func main() {
 	wg.Add(1)
 	go signalHandler(ctx, cancel, &wg)
 
+	workerIDBits := uint(katsubushi.WorkerIDBits)
+	if jsSafeID {
+		workerIDBits = katsubushi.JSSafeWorkerIDBits
+	}
 	if workerID == 0 {
 		if redisURL == "" {
 			fmt.Println("please set -worker-id or -redis")
@@ -88,7 +94,7 @@ func main() {
 		}
 		var err error
 		wg.Add(1)
-		workerID, err = assignWorkerID(ctx, &wg, redisURL, minWorkerID, maxWorkerID)
+		workerID, err = assignWorkerID(ctx, &wg, redisURL, minWorkerID, maxWorkerID, workerIDBits)
 		if err != nil {
 			slog.Error("failed to assign worker-id", "error", err)
 			os.Exit(1)
@@ -102,7 +108,13 @@ func main() {
 		go profiler(ctx, cancel, &wg, pc)
 	}
 
-	app, err := katsubushi.New(workerID)
+	var app *katsubushi.App
+	var err error
+	if jsSafeID {
+		app, err = katsubushi.NewJSSafe(workerID)
+	} else {
+		app, err = katsubushi.New(workerID)
+	}
 	if err != nil {
 		slog.Error("failed to create app", "error", err)
 		os.Exit(1)
@@ -203,9 +215,9 @@ func signalHandler(ctx context.Context, cancel context.CancelFunc, wg *sync.Wait
 	}
 }
 
-func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, min, max uint) (uint, error) {
+func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, min, max, workerIDBits uint) (uint, error) {
 	defer wg.Done()
-	defaultMax := uint((1 << katsubushi.WorkerIDBits) - 1)
+	defaultMax := uint((1 << workerIDBits) - 1)
 	if min == 0 {
 		min = 1
 	}

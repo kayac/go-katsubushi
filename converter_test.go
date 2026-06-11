@@ -43,6 +43,35 @@ func TestConvertNow(t *testing.T) {
 	}
 }
 
+func TestConvertJSSafeFixed(t *testing.T) {
+	t1 := time.Unix(1465276650, 770000000) // 10ms precision
+	id := katsubushi.ToIDJSSafe(t1)
+	if id != 74065921261568 {
+		t.Error("unexpected id", id)
+	}
+
+	t2 := katsubushi.ToTimeJSSafe(id)
+	if !t1.Equal(t2) {
+		t.Error("roundtrip failed")
+	}
+}
+
+func TestDumpJSSafe(t *testing.T) {
+	ts := time.Date(2017, 9, 4, 3, 12, 11, 610000000, time.UTC)
+	id := katsubushi.ToIDJSSafe(ts) | 63<<8 | 5
+
+	gotTs, wid, seq := katsubushi.DumpJSSafe(id)
+	if !gotTs.Equal(ts) {
+		t.Errorf("%d timestamp is not expected. got %s expected %s", id, gotTs, ts)
+	}
+	if wid != 63 {
+		t.Errorf("%d workerID is not expected. got %d expected %d", id, wid, 63)
+	}
+	if seq != 5 {
+		t.Errorf("%d sequence is not expected. got %d expected %d", id, seq, 5)
+	}
+}
+
 func TestDump(t *testing.T) {
 	testCases := []struct {
 		id  uint64

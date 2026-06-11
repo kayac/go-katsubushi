@@ -170,6 +170,49 @@ See [grpc/README.md](grpc/README.md).
 
 katsubushi use algorithm like snowflake to generate ID.
 
+Each ID is a 64 bit unsigned integer composed of the following bits.
+
+```
+ 63                                           22 21           12 11           0
++-----------------------------------------------+---------------+-------------+
+|              timestamp (42 bits)              | worker ID     | sequence    |
+|                                               | (10 bits)     | (12 bits)   |
++-----------------------------------------------+---------------+-------------+
+```
+
+- **timestamp (42 bits)**: milliseconds elapsed since the katsubushi epoch (2015-01-01 00:00:00 UTC).
+- **worker ID (10 bits)**: ID of the worker which generated the ID. Up to 1024 workers can run in a service.
+- **sequence (12 bits)**: incremented for each ID generated in the same millisecond. Up to 4096 IDs can be generated per millisecond per worker.
+
+### Limits
+
+- **Lifetime**: The 42 bit timestamp can represent 2^42 milliseconds (about 139 years) from the epoch, so IDs can be generated until around the year 2154.
+- **Throughput**: Each worker can generate up to 4096 IDs per millisecond, that is 4,096,000 IDs per second. With the maximum of 1024 workers, a service can generate up to about 4.2 billion IDs per second in total.
+
+### JS-safe ID format
+
+The default 64 bit IDs exceed `Number.MAX_SAFE_INTEGER` (2^53 - 1) in JavaScript, so they lose precision when handled as a number (e.g. parsed from JSON). When IDs are used as numeric database primary keys, they may be handled as numbers unintentionally, especially in dynamically typed languages.
+
+To avoid this, katsubushi can generate IDs that fit within 2^53 - 1 with the `-js-safe-id` option.
+
+```
+ 52                                    14 13       8 7           0
++----------------------------------------+----------+------------+
+|  timestamp (39 bits, 10ms units)       | worker   | sequence   |
+|                                        | (6 bits) | (8 bits)   |
++----------------------------------------+----------+------------+
+```
+
+- **timestamp (39 bits)**: 10 milliseconds units elapsed since the epoch (2015-01-01 00:00:00 UTC). 2^39 * 10ms is about 174 years, so IDs can be generated until around the year 2189.
+- **worker ID (6 bits)**: up to 64 workers can run in a service.
+- **sequence (8 bits)**: up to 256 IDs can be generated per 10 milliseconds per worker, that is 25,600 IDs per second.
+
+Note:
+
+- IDs in the JS-safe format are not compatible with IDs in the default format. Do not mix both formats in a service.
+- When using the JS-safe format with `-redis`, use a different namespace (`?ns=`) from the default format because the worker ID ranges are different.
+- The format of an ID can be determined by its value: IDs in the JS-safe format never exceed 2^53 - 1 (9007199254740991), while IDs in the default format always exceed it (a default format ID could be below 2^53 only within 25 days after the epoch, before katsubushi was released).
+
 ## Commandline Options
 
 `-worker-id` or `-redis` is required.
@@ -250,6 +293,13 @@ Default value is `0` (disabled).
 Optional.
 Port number of gRPC server.
 Default value is `0` (disabled).
+
+### -js-safe-id
+
+Optional.
+Boolean flag.
+Generate IDs that fit within 2^53 - 1 (`Number.MAX_SAFE_INTEGER` in JavaScript).
+See [JS-safe ID format](#js-safe-id-format) for details.
 
 
 ## Licence
