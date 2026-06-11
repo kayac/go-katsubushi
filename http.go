@@ -91,8 +91,8 @@ func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	if n > MaxHTTPBulkSize {
-		msg := fmt.Sprintf("too many IDs requested: %d, n should be smaller than %d", n, MaxHTTPBulkSize)
+	if n < 1 || n > MaxHTTPBulkSize {
+		msg := fmt.Sprintf("invalid n: %d, n should be between 1 and %d", n, MaxHTTPBulkSize)
 		slog.Error(msg)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(msg))

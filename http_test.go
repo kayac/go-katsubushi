@@ -207,6 +207,17 @@ func TestHTTPMultiCS(t *testing.T) {
 	}
 }
 
+func TestHTTPMultiInvalidN(t *testing.T) {
+	for _, n := range []string{"0", "-1", "1001", "foo"} {
+		req := httptest.NewRequest("GET", "/ids?n="+n, nil)
+		w := httptest.NewRecorder()
+		httpApp.HTTPGetMultiID(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("status code for n=%s should be 400 but %d", n, w.Code)
+		}
+	}
+}
+
 func TestHTTPClientPathPrefix(t *testing.T) {
 	app, err := katsubushi.New(81)
 	if err != nil {
