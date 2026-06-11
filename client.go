@@ -2,6 +2,7 @@ package katsubushi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -38,7 +39,7 @@ func (c *Client) SetTimeout(t time.Duration) {
 
 // Fetch fetches id from katsubushi
 func (c *Client) Fetch(ctx context.Context) (uint64, error) {
-	errs := fmt.Errorf("no servers available")
+	var errs []error
 	for _, mc := range c.memcacheClients {
 		var id uint64
 		err := retry.Retry(2, 0, func() error {
@@ -47,12 +48,15 @@ func (c *Client) Fetch(ctx context.Context) (uint64, error) {
 			return _err
 		})
 		if err != nil {
-			errs = fmt.Errorf("%s: %w", err.Error(), errs)
+			errs = append(errs, fmt.Errorf("failed to fetch id from %s: %w", mc.addr, err))
 			continue
 		}
 		return id, nil
 	}
-	return 0, errs
+	if len(errs) == 0 {
+		return 0, errors.New("no servers available")
+	}
+	return 0, errors.Join(errs...)
 }
 
 // FetchMulti fetches multiple ids from katsubushi
@@ -63,7 +67,7 @@ func (c *Client) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 		keys = append(keys, strconv.Itoa(i))
 	}
 
-	errs := fmt.Errorf("no servers available")
+	var errs []error
 
 	for _, mc := range c.memcacheClients {
 		var ids []uint64
@@ -73,10 +77,13 @@ func (c *Client) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 			return _err
 		})
 		if err != nil {
-			errs = fmt.Errorf("%s: %w", err.Error(), errs)
+			errs = append(errs, fmt.Errorf("failed to fetch ids from %s: %w", mc.addr, err))
 			continue
 		}
 		return ids, nil
 	}
-	return nil, errs
+	if len(errs) == 0 {
+		return nil, errors.New("no servers available")
+	}
+	return nil, errors.Join(errs...)
 }

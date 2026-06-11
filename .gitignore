@@ -1,4 +1,7 @@
 cmd/katsubushi/katsubushi
+/katsubushi
+/katsubushi-dump
+dump.rdb
 pkg/*
 !.gitkeep
 /vendor/

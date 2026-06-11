@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"sync/atomic"
 	"time"
 
 	"github.com/kayac/go-katsubushi/v2/grpc"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -30,7 +28,7 @@ type gRPCGenerator struct {
 }
 
 func (sv *gRPCGenerator) Fetch(ctx context.Context, req *grpc.FetchRequest) (*grpc.FetchResponse, error) {
-	atomic.AddInt64(&sv.app.cmdGet, 1)
+	sv.app.cmdGet.Add(1)
 	slog.Debug("gRPC Fetch request")
 
 	id, err := sv.app.NextID()
@@ -45,7 +43,7 @@ func (sv *gRPCGenerator) Fetch(ctx context.Context, req *grpc.FetchRequest) (*gr
 }
 
 func (sv *gRPCGenerator) FetchMulti(ctx context.Context, req *grpc.FetchMultiRequest) (*grpc.FetchMultiResponse, error) {
-	atomic.AddInt64(&sv.app.cmdGet, 1)
+	sv.app.cmdGet.Add(1)
 	n := int(req.N)
 	slog.Debug("gRPC FetchMulti request", "n", n)
 	if n > MaxGRPCBulkSize {
@@ -76,7 +74,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	opts := []grpc_recovery.Option{
 		grpc_recovery.WithRecoveryHandler(grpcRecoveryFunc),
 	}
-	s := gogrpc.NewServer(grpc_middleware.WithUnaryServerChain(
+	s := gogrpc.NewServer(gogrpc.ChainUnaryInterceptor(
 		grpc_recovery.UnaryServerInterceptor(opts...),
 	))
 	grpc.RegisterGeneratorServer(s, svGen)
@@ -121,6 +119,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	}()
 
 	slog.Info("Listening gRPC server", "addr", listener.Addr().String())
+	app.setReady()
 	err := s.Serve(listener)
 	select {
 	case <-ctx.Done():

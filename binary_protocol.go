@@ -9,7 +9,6 @@ import (
 	"net"
 	"reflect"
 	"strconv"
-	"sync/atomic"
 )
 
 const (
@@ -204,6 +203,7 @@ func (app *App) IsBinaryProtocol(r *bufio.Reader) (bool, error) {
 // A request should be read from r, not conn.
 // Because the request reader might be buffered.
 func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
+	w := bufio.NewWriter(conn)
 	for {
 		app.extendDeadline(conn)
 
@@ -223,7 +223,6 @@ func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 			}
 			continue
 		}
-		w := bufio.NewWriter(conn)
 		if err := cmd.Execute(app, w); err != nil {
 			slog.Warn("error on execute cmd", "cmd", fmt.Sprintf("%v", cmd), "error", err)
 			return
@@ -259,7 +258,7 @@ func (app *App) writeBinaryError(w io.Writer, opcode byte, opaque [4]byte) error
 func (app *App) BytesToBinaryCmd(req bRequest) (cmd MemdCmd, err error) {
 	switch req.opcode {
 	case opcodeGet:
-		atomic.AddInt64(&(app.cmdGet), 1)
+		app.cmdGet.Add(1)
 		cmd = &MemdBCmdGet{
 			Name:   "GET",
 			Key:    req.key,
