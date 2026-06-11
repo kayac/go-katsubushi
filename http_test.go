@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -333,17 +334,25 @@ func TestHTTPAllServersFail(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer bad.Close()
+	bad2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer bad2.Close()
 
-	client, err := katsubushi.NewHTTPClient([]string{bad.URL}, "")
+	client, err := katsubushi.NewHTTPClient([]string{bad.URL, bad2.URL}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if id, err := client.Fetch(context.Background()); err == nil {
 		t.Fatalf("Fetch should return an error when all servers fail, got id=%d", id)
+	} else if !strings.Contains(err.Error(), bad.URL) || !strings.Contains(err.Error(), bad2.URL) {
+		t.Errorf("error should contain failures of all servers: %v", err)
 	}
 	if ids, err := client.FetchMulti(context.Background(), 10); err == nil {
 		t.Fatalf("FetchMulti should return an error when all servers fail, got ids=%v", ids)
+	} else if !strings.Contains(err.Error(), bad.URL) || !strings.Contains(err.Error(), bad2.URL) {
+		t.Errorf("error should contain failures of all servers: %v", err)
 	}
 }
 

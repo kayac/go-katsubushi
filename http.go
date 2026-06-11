@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -191,7 +192,7 @@ func (c *HTTPClient) SetTimeout(t time.Duration) {
 
 // Fetch fetches id from katsubushi via HTTP
 func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
-	errs := fmt.Errorf("no servers available")
+	errs := []error{errors.New("no servers available")}
 	for _, u := range c.urls {
 		// copy the URL to avoid mutating the shared one
 		id, err := func(u url.URL) (uint64, error) {
@@ -221,17 +222,17 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 			}
 		}(*u)
 		if err != nil {
-			errs = fmt.Errorf("failed to fetch id from %s: %w", u, err)
+			errs = append(errs, fmt.Errorf("failed to fetch id from %s: %w", u, err))
 			continue
 		}
 		return id, nil
 	}
-	return 0, errs
+	return 0, errors.Join(errs...)
 }
 
 // FetchMulti fetches multiple ids from katsubushi via HTTP
 func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
-	errs := fmt.Errorf("no servers available")
+	errs := []error{errors.New("no servers available")}
 	for _, u := range c.urls {
 		// copy the URL to avoid mutating the shared one
 		ids, err := func(u url.URL) ([]uint64, error) {
@@ -270,10 +271,10 @@ func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 			return ids, nil
 		}(*u)
 		if err != nil {
-			errs = fmt.Errorf("failed to fetch ids from %s: %w", u, err)
+			errs = append(errs, fmt.Errorf("failed to fetch ids from %s: %w", u, err))
 			continue
 		}
 		return ids, nil
 	}
-	return nil, errs
+	return nil, errors.Join(errs...)
 }
