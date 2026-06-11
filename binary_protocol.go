@@ -93,9 +93,12 @@ func newBRequest(r io.Reader) (req *bRequest, err error) {
 		return nil, fmt.Errorf("failed to read binary request body: %s", e2)
 	}
 
-	req.extras = bodyBuf[0:extraLen]
-	req.key = string(bodyBuf[extraLen : uint16(extraLen)+keyLen])
-	req.value = string(bodyBuf[uint16(extraLen)+keyLen : bodyLen])
+	// calculate indexes in int to avoid overflow in uint16
+	extraEnd := int(extraLen)
+	keyEnd := extraEnd + int(keyLen)
+	req.extras = bodyBuf[0:extraEnd]
+	req.key = string(bodyBuf[extraEnd:keyEnd])
+	req.value = string(bodyBuf[keyEnd:])
 
 	return
 }

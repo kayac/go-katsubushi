@@ -362,6 +362,27 @@ func TestNewBRequestTooLargeBody(t *testing.T) {
 	}
 }
 
+func TestNewBRequestKeyLenOverflow(t *testing.T) {
+	// keyLen + extraLen overflows uint16 (65535 + 1 = 0).
+	// It must not panic on slicing the body buffer.
+	input := make([]byte, headerSize+maxBinaryBodyLen)
+	input[0] = magicRequest
+	input[1] = opcodeGet
+	binary.BigEndian.PutUint16(input[2:4], 65535)             // key length
+	input[4] = 1                                              // extra length
+	binary.BigEndian.PutUint32(input[8:12], maxBinaryBodyLen) // total body length
+	req, err := newBRequest(bytes.NewReader(input))
+	if err != nil {
+		t.Fatalf("failed to parse request: %s", err)
+	}
+	if len(req.key) != 65535 {
+		t.Errorf("unexpected key length: %d", len(req.key))
+	}
+	if req.value != "" {
+		t.Errorf("unexpected value: %q", req.value)
+	}
+}
+
 type errorGenerator struct{}
 
 func (g errorGenerator) NextID() (uint64, error) { return 0, errors.New("dummy error") }
