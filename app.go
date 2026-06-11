@@ -172,9 +172,10 @@ var (
 type App struct {
 	Listener net.Listener
 
-	gen      Generator
-	idFormat string
-	readyCh  chan any
+	gen       Generator
+	idFormat  string
+	readyCh   chan any
+	readyOnce sync.Once
 
 	// App will disconnect connection if there are no commands until idleTimeout.
 	idleTimeout time.Duration
@@ -341,7 +342,7 @@ func (app *App) Serve(ctx context.Context, l net.Listener) error {
 	)
 
 	app.Listener = l
-	close(app.readyCh)
+	app.setReady()
 
 	go func() {
 		<-ctx.Done()
@@ -371,6 +372,12 @@ func (app *App) Serve(ctx context.Context, l net.Listener) error {
 // Ready returns a channel which become readable when the app can accept connections.
 func (app *App) Ready() chan any {
 	return app.readyCh
+}
+
+func (app *App) setReady() {
+	app.readyOnce.Do(func() {
+		close(app.readyCh)
+	})
 }
 
 func (app *App) handleConn(ctx context.Context, conn net.Conn) {

@@ -228,6 +228,11 @@ func TestHTTPClientPathPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	go app.RunHTTPServer(t.Context(), &katsubushi.Config{HTTPListener: listener, HTTPPathPrefix: "v1/"})
+	select {
+	case <-app.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the app must become ready by RunHTTPServer")
+	}
 
 	u := fmt.Sprintf("http://%s", listener.Addr())
 	client, err := katsubushi.NewHTTPClient([]string{u}, "v1/")

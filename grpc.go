@@ -119,6 +119,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	}()
 
 	slog.Info("Listening gRPC server", "addr", listener.Addr().String())
+	app.setReady()
 	err := s.Serve(listener)
 	select {
 	case <-ctx.Done():
