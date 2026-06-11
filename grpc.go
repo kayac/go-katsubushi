@@ -107,7 +107,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 		s.Stop()
 	}()
 
-	slog.Info("Listening gRPC server at " + listener.Addr().String())
+	slog.Info("Listening gRPC server", "addr", listener.Addr().String())
 	return s.Serve(listener)
 }
 

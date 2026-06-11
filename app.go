@@ -299,9 +299,11 @@ func (app *App) ListenerTCP(addr string) (net.Listener, error) {
 
 // Serve starts a server.
 func (app *App) Serve(ctx context.Context, l net.Listener) error {
-	slog.Info("Listening server at " + l.Addr().String())
-	slog.Info("Worker ID = " + strconv.FormatUint(uint64(app.gen.WorkerID()), 10))
-	slog.Info("ID format = " + app.idFormat)
+	slog.Info("Listening server",
+		"addr", l.Addr().String(),
+		"worker_id", uint64(app.gen.WorkerID()),
+		"id_format", app.idFormat,
+	)
 
 	app.Listener = l
 	close(app.readyCh)

@@ -45,7 +45,7 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 		}
 	}
 	listener = app.wrapListener(listener)
-	slog.Info("Listening HTTP server at " + listener.Addr().String())
+	slog.Info("Listening HTTP server", "addr", listener.Addr().String())
 	return s.Serve(listener)
 }
 
