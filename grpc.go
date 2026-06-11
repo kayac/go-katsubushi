@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"sync/atomic"
 	"time"
 
 	"github.com/kayac/go-katsubushi/v2/grpc"
@@ -29,7 +28,7 @@ type gRPCGenerator struct {
 }
 
 func (sv *gRPCGenerator) Fetch(ctx context.Context, req *grpc.FetchRequest) (*grpc.FetchResponse, error) {
-	atomic.AddInt64(&sv.app.cmdGet, 1)
+	sv.app.cmdGet.Add(1)
 	slog.Debug("gRPC Fetch request")
 
 	id, err := sv.app.NextID()
@@ -44,7 +43,7 @@ func (sv *gRPCGenerator) Fetch(ctx context.Context, req *grpc.FetchRequest) (*gr
 }
 
 func (sv *gRPCGenerator) FetchMulti(ctx context.Context, req *grpc.FetchMultiRequest) (*grpc.FetchMultiResponse, error) {
-	atomic.AddInt64(&sv.app.cmdGet, 1)
+	sv.app.cmdGet.Add(1)
 	n := int(req.N)
 	slog.Debug("gRPC FetchMulti request", "n", n)
 	if n > MaxGRPCBulkSize {

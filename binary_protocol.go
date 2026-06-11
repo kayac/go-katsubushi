@@ -9,7 +9,6 @@ import (
 	"net"
 	"reflect"
 	"strconv"
-	"sync/atomic"
 )
 
 const (
@@ -259,7 +258,7 @@ func (app *App) writeBinaryError(w io.Writer, opcode byte, opaque [4]byte) error
 func (app *App) BytesToBinaryCmd(req bRequest) (cmd MemdCmd, err error) {
 	switch req.opcode {
 	case opcodeGet:
-		atomic.AddInt64(&(app.cmdGet), 1)
+		app.cmdGet.Add(1)
 		cmd = &MemdBCmdGet{
 			Name:   "GET",
 			Key:    req.key,

@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -68,7 +67,7 @@ func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	atomic.AddInt64(&app.cmdGet, 1)
+	app.cmdGet.Add(1)
 	slog.Debug("HTTP GetSingleID request", "remote", req.RemoteAddr)
 	id, err := app.NextID()
 	if err != nil {
@@ -91,7 +90,7 @@ func (app *App) HTTPGetMultiID(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	atomic.AddInt64(&app.cmdGet, 1)
+	app.cmdGet.Add(1)
 	slog.Debug("HTTP GetMultiID request", "remote", req.RemoteAddr)
 	var n int64
 	if ns := req.FormValue("n"); ns == "" {

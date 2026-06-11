@@ -184,9 +184,9 @@ type App struct {
 	// these values are accessed atomically
 	currConnections  atomic.Int64
 	totalConnections atomic.Int64
-	cmdGet           int64
-	getHits          int64
-	getMisses        int64
+	cmdGet           atomic.Int64
+	getHits          atomic.Int64
+	getMisses        atomic.Int64
 }
 
 // New create and returns new App instance.
@@ -455,9 +455,9 @@ func (app *App) GetStats() MemdStats {
 		Version:          Version,
 		CurrConnections:  app.currConnections.Load(),
 		TotalConnections: app.totalConnections.Load(),
-		CmdGet:           atomic.LoadInt64(&app.cmdGet),
-		GetHits:          atomic.LoadInt64(&app.getHits),
-		GetMisses:        atomic.LoadInt64(&app.getMisses),
+		CmdGet:           app.cmdGet.Load(),
+		GetHits:          app.getHits.Load(),
+		GetMisses:        app.getMisses.Load(),
 	}
 }
 
@@ -474,9 +474,9 @@ func (app *App) writeError(conn io.Writer) (err error) {
 func (app *App) NextID() (uint64, error) {
 	id, err := app.gen.NextID()
 	if err != nil {
-		atomic.AddInt64(&(app.getMisses), 1)
+		app.getMisses.Add(1)
 	} else {
-		atomic.AddInt64(&(app.getHits), 1)
+		app.getHits.Add(1)
 	}
 	return id, err
 }
@@ -490,7 +490,7 @@ func (app *App) BytesToCmd(data []byte) (cmd MemdCmd, err error) {
 	fields := strings.Fields(string(data))
 	switch name := strings.ToUpper(fields[0]); name {
 	case "GET", "GETS":
-		atomic.AddInt64(&(app.cmdGet), 1)
+		app.cmdGet.Add(1)
 		if len(fields) < 2 {
 			err = fmt.Errorf("GET command needs key as second parameter")
 			return
