@@ -217,6 +217,16 @@ Note:
 
 `-worker-id` or `-redis` is required.
 
+All options can also be set via environment variables. For each option, the following environment variables are looked up in order, and the first one found is used. For example, for `-worker-id`:
+
+1. `KATSUBUSHI_WORKER_ID`
+2. `WORKER_ID`
+3. `worker_id`
+
+Commandline options take precedence over environment variables.
+
+The `KATSUBUSHI_` prefixed form is recommended because non-prefixed names may conflict with unrelated environment variables (e.g. `PORT` or `VERSION` are commonly set by platforms).
+
 ### -worker-id
 
 ID of the worker, must be unique in your service.
@@ -242,8 +252,10 @@ If we use multi katsubushi clusters, worker-id range for each clusters must not 
 ### -port
 
 Optional.
-Port number used for connection.
+Port number of the memcached compatible server.
 Default value is `11212`.
+`0` means disable (e.g. to serve the HTTP or gRPC server only).
+At least one of `-port`, `-sock`, `-http-port` or `-grpc-port` must be enabled.
 
 ### -sock
 
@@ -261,6 +273,12 @@ Default value is `600`.
 
 Optional.
 Default value is `info`.
+
+### -log-format
+
+Optional.
+Log format, `text` or `json`.
+Default value is `text`.
 
 ### -enable-pprof
 
