@@ -203,6 +203,7 @@ func (app *App) IsBinaryProtocol(r *bufio.Reader) (bool, error) {
 // A request should be read from r, not conn.
 // Because the request reader might be buffered.
 func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
+	w := bufio.NewWriter(conn)
 	for {
 		app.extendDeadline(conn)
 
@@ -222,7 +223,6 @@ func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 			}
 			continue
 		}
-		w := bufio.NewWriter(conn)
 		if err := cmd.Execute(app, w); err != nil {
 			slog.Warn("error on execute cmd", "cmd", fmt.Sprintf("%v", cmd), "error", err)
 			return
