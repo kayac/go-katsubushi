@@ -2,6 +2,7 @@ package katsubushi
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -238,4 +239,14 @@ func TestClientTimeout(t *testing.T) {
 func cancelAndWait(cancel context.CancelFunc) {
 	cancel()
 	time.Sleep(100 * time.Millisecond)
+}
+
+func TestClientNoServers(t *testing.T) {
+	c := NewClient()
+	if _, err := c.Fetch(context.Background()); err == nil || !strings.Contains(err.Error(), "no servers available") {
+		t.Errorf("Fetch should fail with no servers available: %v", err)
+	}
+	if _, err := c.FetchMulti(context.Background(), 10); err == nil || !strings.Contains(err.Error(), "no servers available") {
+		t.Errorf("FetchMulti should fail with no servers available: %v", err)
+	}
 }

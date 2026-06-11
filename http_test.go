@@ -348,11 +348,26 @@ func TestHTTPAllServersFail(t *testing.T) {
 		t.Fatalf("Fetch should return an error when all servers fail, got id=%d", id)
 	} else if !strings.Contains(err.Error(), bad.URL) || !strings.Contains(err.Error(), bad2.URL) {
 		t.Errorf("error should contain failures of all servers: %v", err)
+	} else if strings.Contains(err.Error(), "no servers available") {
+		t.Errorf("error should not say no servers available when servers are configured: %v", err)
 	}
 	if ids, err := client.FetchMulti(context.Background(), 10); err == nil {
 		t.Fatalf("FetchMulti should return an error when all servers fail, got ids=%v", ids)
 	} else if !strings.Contains(err.Error(), bad.URL) || !strings.Contains(err.Error(), bad2.URL) {
 		t.Errorf("error should contain failures of all servers: %v", err)
+	}
+}
+
+func TestHTTPClientNoServers(t *testing.T) {
+	client, err := katsubushi.NewHTTPClient([]string{}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Fetch(context.Background()); err == nil || !strings.Contains(err.Error(), "no servers available") {
+		t.Errorf("Fetch should fail with no servers available: %v", err)
+	}
+	if _, err := client.FetchMulti(context.Background(), 10); err == nil || !strings.Contains(err.Error(), "no servers available") {
+		t.Errorf("FetchMulti should fail with no servers available: %v", err)
 	}
 }
 

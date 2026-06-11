@@ -192,7 +192,7 @@ func (c *HTTPClient) SetTimeout(t time.Duration) {
 
 // Fetch fetches id from katsubushi via HTTP
 func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
-	errs := []error{errors.New("no servers available")}
+	var errs []error
 	for _, u := range c.urls {
 		// copy the URL to avoid mutating the shared one
 		id, err := func(u url.URL) (uint64, error) {
@@ -227,12 +227,15 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 		}
 		return id, nil
 	}
+	if len(errs) == 0 {
+		return 0, errors.New("no servers available")
+	}
 	return 0, errors.Join(errs...)
 }
 
 // FetchMulti fetches multiple ids from katsubushi via HTTP
 func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
-	errs := []error{errors.New("no servers available")}
+	var errs []error
 	for _, u := range c.urls {
 		// copy the URL to avoid mutating the shared one
 		ids, err := func(u url.URL) ([]uint64, error) {
@@ -275,6 +278,9 @@ func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 			continue
 		}
 		return ids, nil
+	}
+	if len(errs) == 0 {
+		return nil, errors.New("no servers available")
 	}
 	return nil, errors.Join(errs...)
 }

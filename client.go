@@ -39,7 +39,7 @@ func (c *Client) SetTimeout(t time.Duration) {
 
 // Fetch fetches id from katsubushi
 func (c *Client) Fetch(ctx context.Context) (uint64, error) {
-	errs := []error{errors.New("no servers available")}
+	var errs []error
 	for _, mc := range c.memcacheClients {
 		var id uint64
 		err := retry.Retry(2, 0, func() error {
@@ -53,6 +53,9 @@ func (c *Client) Fetch(ctx context.Context) (uint64, error) {
 		}
 		return id, nil
 	}
+	if len(errs) == 0 {
+		return 0, errors.New("no servers available")
+	}
 	return 0, errors.Join(errs...)
 }
 
@@ -64,7 +67,7 @@ func (c *Client) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 		keys = append(keys, strconv.Itoa(i))
 	}
 
-	errs := []error{errors.New("no servers available")}
+	var errs []error
 
 	for _, mc := range c.memcacheClients {
 		var ids []uint64
@@ -78,6 +81,9 @@ func (c *Client) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 			continue
 		}
 		return ids, nil
+	}
+	if len(errs) == 0 {
+		return nil, errors.New("no servers available")
 	}
 	return nil, errors.Join(errs...)
 }
