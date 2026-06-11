@@ -122,9 +122,15 @@ func main() {
 
 	// main server
 	var errs []error
+	var errsMu sync.Mutex
+	recordErr := func(err error) {
+		errsMu.Lock()
+		defer errsMu.Unlock()
+		errs = append(errs, err)
+	}
 	wg.Go(func() {
 		if err := app.RunServer(ctx, kc); err != nil {
-			errs = append(errs, err)
+			recordErr(err)
 			cancel()
 		}
 	})
@@ -133,7 +139,7 @@ func main() {
 	if kc.HTTPPort != 0 {
 		wg.Go(func() {
 			if err := app.RunHTTPServer(ctx, kc); err != nil {
-				errs = append(errs, err)
+				recordErr(err)
 				cancel()
 			}
 		})
@@ -142,7 +148,7 @@ func main() {
 	if kc.GRPCPort != 0 {
 		wg.Go(func() {
 			if err := app.RunGRPCServer(ctx, kc); err != nil {
-				errs = append(errs, err)
+				recordErr(err)
 				cancel()
 			}
 		})

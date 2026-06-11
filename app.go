@@ -205,6 +205,8 @@ func NewJSSafe(workerID uint) (*App, error) {
 }
 
 // NewAppWithGenerator create and returns new App instance with specified Generator.
+// The workerID parameter is not used. It is kept for backward compatibility,
+// the worker ID is determined by gen.WorkerID().
 func NewAppWithGenerator(gen Generator, workerID uint) (*App, error) {
 	return newApp(gen), nil
 }

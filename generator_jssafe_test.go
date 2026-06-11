@@ -1,6 +1,7 @@
 package katsubushi
 
 import (
+	"slices"
 	"testing"
 	"time"
 )
@@ -39,6 +40,13 @@ func TestJSSafeWorkerIDPoolSeparatedByFormat(t *testing.T) {
 	newGeneratorLock.Lock()
 	workerIDPools[jsSafeSpec.name] = append(workerIDPools[jsSafeSpec.name], 59)
 	newGeneratorLock.Unlock()
+	t.Cleanup(func() {
+		newGeneratorLock.Lock()
+		defer newGeneratorLock.Unlock()
+		workerIDPools[jsSafeSpec.name] = slices.DeleteFunc(workerIDPools[jsSafeSpec.name], func(id uint) bool {
+			return id == 59
+		})
+	})
 
 	if err := checkWorkerID(59, jsSafeSpec); err != ErrDuplicatedWorkerID {
 		t.Errorf("worker ID 59 must be duplicated in the JS-safe format: %s", err)
