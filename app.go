@@ -224,10 +224,27 @@ func newApp(gen Generator) *App {
 	}
 }
 
+var (
+	logLevel  = slog.LevelInfo
+	logFormat = "text"
+)
+
 func init() {
-	handler := newCustomHandler(os.Stderr, slog.LevelInfo)
-	l := slog.New(handler)
-	slog.SetDefault(l)
+	setDefaultLogger()
+}
+
+func newLogHandler(w io.Writer, level slog.Level, format string) slog.Handler {
+	if format == "json" {
+		return slog.NewJSONHandler(w, &slog.HandlerOptions{
+			Level:     level,
+			AddSource: true,
+		})
+	}
+	return newCustomHandler(w, level)
+}
+
+func setDefaultLogger() {
+	slog.SetDefault(slog.New(newLogHandler(os.Stderr, logLevel, logFormat)))
 }
 
 // SetLogLevel sets log level.
@@ -249,9 +266,23 @@ func SetLogLevel(str string) error {
 	default:
 		return fmt.Errorf("invalid log level %s", str)
 	}
-	handler := newCustomHandler(os.Stderr, level)
-	l := slog.New(handler)
-	slog.SetDefault(l)
+	logLevel = level
+	setDefaultLogger()
+	return nil
+}
+
+// SetLogFormat sets log format.
+// Log format must be one of text and json.
+func SetLogFormat(format string) error {
+	switch format {
+	case "", "text":
+		format = "text"
+	case "json":
+	default:
+		return fmt.Errorf("invalid log format %s", format)
+	}
+	logFormat = format
+	setDefaultLogger()
 	return nil
 }
 

@@ -8,6 +8,7 @@ import (
 type Config struct {
 	IdleTimeout time.Duration
 	LogLevel    string
+	LogFormat   string
 
 	Port     int
 	Sockpath string

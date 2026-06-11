@@ -52,6 +52,7 @@ func main() {
 	flag.StringVar(&kc.Sockpath, "sock", "", "unix domain socket to listen. ignore port option when set this.")
 	flag.DurationVar(&kc.IdleTimeout, "idle-timeout", katsubushi.DefaultIdleTimeout, "connection will be closed if there are no packets over the seconds. 0 means infinite.")
 	flag.StringVar(&kc.LogLevel, "log-level", "info", "log level (panic, fatal, error, warn, info = Default, debug)")
+	flag.StringVar(&kc.LogFormat, "log-format", "text", "log format (text = Default, json)")
 	flag.IntVar(&kc.HTTPPort, "http-port", 0, "port to listen http server. 0 means disable.")
 	flag.IntVar(&kc.GRPCPort, "grpc-port", 0, "port to listen grpc server. 0 means disable.")
 
@@ -72,6 +73,10 @@ func main() {
 		return
 	}
 
+	if err := katsubushi.SetLogFormat(kc.LogFormat); err != nil {
+		slog.Error("failed to set log format", "format", kc.LogFormat, "error", err)
+		os.Exit(1)
+	}
 	if err := katsubushi.SetLogLevel(kc.LogLevel); err != nil {
 		slog.Error("failed to set log level", "level", kc.LogLevel, "error", err)
 		os.Exit(1)

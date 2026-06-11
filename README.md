@@ -264,6 +264,12 @@ Default value is `600`.
 Optional.
 Default value is `info`.
 
+### -log-format
+
+Optional.
+Log format, `text` or `json`.
+Default value is `text`.
+
 ### -enable-pprof
 
 Optional.
