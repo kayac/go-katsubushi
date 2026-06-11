@@ -160,6 +160,10 @@ var (
 	// DefaultIdleTimeout is the default idle timeout.
 	DefaultIdleTimeout = 600 * time.Second
 
+	// ShutdownTimeout is the timeout to wait for in-flight requests
+	// on graceful shutdown of the HTTP and gRPC servers.
+	ShutdownTimeout = 10 * time.Second
+
 	// InfiniteIdleTimeout means that idle timeout is disabled.
 	InfiniteIdleTimeout = time.Duration(0)
 )

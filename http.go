@@ -30,10 +30,17 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 		Handler: mux,
 	}
 	// shutdown
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		slog.Info("Shutting down HTTP server")
-		s.Shutdown(ctx)
+		// ctx is already canceled here, so use a new context to wait for in-flight requests.
+		sctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+		defer cancel()
+		if err := s.Shutdown(sctx); err != nil {
+			slog.Warn("Failed to shutdown HTTP server gracefully", "error", err)
+		}
 	}()
 
 	listener := cfg.HTTPListener
@@ -46,7 +53,14 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 	}
 	listener = app.wrapListener(listener)
 	slog.Info("Listening HTTP server", "addr", listener.Addr().String())
-	return s.Serve(listener)
+	err := s.Serve(listener)
+	select {
+	case <-ctx.Done():
+		// Serve returns as soon as the shutdown begins, so wait for it to complete.
+		<-shutdownDone
+	default:
+	}
+	return err
 }
 
 func (app *App) HTTPGetSingleID(w http.ResponseWriter, req *http.Request) {
