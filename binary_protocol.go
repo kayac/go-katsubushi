@@ -19,6 +19,12 @@ const (
 	opcodeGet     = 0x00
 	opcodeVersion = 0x0b
 	opcodeStat    = 0x10
+
+	// maxBinaryBodyLen is the maximum body size of a binary request.
+	// Requests katsubushi can handle have a key and no value,
+	// and keys are limited to 250 bytes in the memcached protocol.
+	// This limit only protects against a huge allocation by a malformed header.
+	maxBinaryBodyLen = 64 * 1024
 )
 
 type bRequest struct {
@@ -76,6 +82,9 @@ func newBRequest(r io.Reader) (req *bRequest, err error) {
 
 	if bodyLen < uint32(keyLen)+uint32(extraLen) {
 		return nil, fmt.Errorf("total body %d is too small. key length: %d, extra length %d", bodyLen, keyLen, extraLen)
+	}
+	if bodyLen > maxBinaryBodyLen {
+		return nil, fmt.Errorf("total body %d is too large. limit: %d", bodyLen, maxBinaryBodyLen)
 	}
 
 	bodyBuf := make([]byte, bodyLen)
@@ -205,7 +214,7 @@ func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 
 		cmd, err := app.BytesToBinaryCmd(*req)
 		if err != nil {
-			if err := app.writeBinaryError(conn); err != nil {
+			if err := app.writeBinaryError(conn, req.opcode, req.opaque); err != nil {
 				slog.Warn("error on write error", "error", err)
 				return
 			}
@@ -225,20 +234,22 @@ func (app *App) RespondToBinary(r io.Reader, conn net.Conn) {
 	}
 }
 
-func (app *App) writeBinaryError(w io.Writer) error {
-	// TODO: Opcode, Opaque and Status are static and not accurate. It's better to make them dynamic
-	// opcode: GET, it should be a requested opcode
-	// opaque: zero padding, it should be a requested opaque
-	res := newBResponse(opcodeGet, [4]byte{0x00, 0x00, 0x00, 0x00}, bResponseConfig{
-		// status: Internal Error, it should be determined by a request or server condition
+func (app *App) writeBinaryError(w io.Writer, opcode byte, opaque [4]byte) error {
+	res := newBResponse(opcode, opaque, bResponseConfig{
+		// TODO: status is static. It should be determined by a request or server condition.
+		// status: Internal Error
 		status: [2]byte{0x00, 0x84},
 	})
 
-	n, err := w.Write(res.Bytes())
-	if n < len(respError) {
+	b := res.Bytes()
+	n, err := w.Write(b)
+	if err != nil {
+		return err
+	}
+	if n < len(b) {
 		return fmt.Errorf("failed to write error response")
 	}
-	return err
+	return nil
 }
 
 // BytesToCmd converts byte array to a MemdBCmd and returns it.
@@ -278,7 +289,7 @@ func (cmd *MemdBCmdGet) Execute(app *App, w io.Writer) error {
 	id, err := app.NextID()
 	if err != nil {
 		slog.Warn("Failed to generate ID", "error", err)
-		if err = app.writeError(w); err != nil {
+		if err = app.writeBinaryError(w, opcodeGet, cmd.Opaque); err != nil {
 			slog.Warn("error on write error", "error", err)
 			return err
 		}
