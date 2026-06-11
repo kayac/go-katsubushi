@@ -10,7 +10,6 @@ import (
 
 	"github.com/kayac/go-katsubushi/v2/grpc"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -76,7 +75,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	opts := []grpc_recovery.Option{
 		grpc_recovery.WithRecoveryHandler(grpcRecoveryFunc),
 	}
-	s := gogrpc.NewServer(grpc_middleware.WithUnaryServerChain(
+	s := gogrpc.NewServer(gogrpc.ChainUnaryInterceptor(
 		grpc_recovery.UnaryServerInterceptor(opts...),
 	))
 	grpc.RegisterGeneratorServer(s, svGen)
