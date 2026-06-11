@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -204,6 +205,80 @@ func TestHTTPMultiCS(t *testing.T) {
 		}
 		t.Logf("HTTP fetched IDs: %v", ids)
 	}
+}
+
+func TestHTTPClientPathPrefix(t *testing.T) {
+	app, err := katsubushi.New(81)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go app.RunHTTPServer(t.Context(), &katsubushi.Config{HTTPListener: listener, HTTPPathPrefix: "v1/"})
+
+	u := fmt.Sprintf("http://%s", listener.Addr())
+	client, err := katsubushi.NewHTTPClient([]string{u}, "v1/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := client.Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("failed to fetch id from the prefixed path: %v", err)
+	}
+	if id == 0 {
+		t.Fatal("id should not be 0")
+	}
+	ids, err := client.FetchMulti(context.Background(), 3)
+	if err != nil {
+		t.Fatalf("failed to fetch ids from the prefixed path: %v", err)
+	}
+	if len(ids) != 3 {
+		t.Fatalf("ids should contain 3 elements: %v", ids)
+	}
+}
+
+func TestHTTPClientURLIsolation(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/id", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.RawQuery != "" {
+			t.Errorf("/id should be requested without a query: %s", r.URL.RawQuery)
+		}
+		fmt.Fprint(w, "42")
+	})
+	mux.HandleFunc("/ids", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "1\n2\n3")
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	client, err := katsubushi.NewHTTPClient([]string{ts.URL}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// FetchMulti sets a query parameter. It must not leak into the following Fetch.
+	if _, err := client.FetchMulti(context.Background(), 3); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Fetch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	// Concurrent calls must not race on the shared URLs (verified by -race).
+	var wg sync.WaitGroup
+	for range 10 {
+		wg.Go(func() {
+			if _, err := client.Fetch(context.Background()); err != nil {
+				t.Error(err)
+			}
+			if _, err := client.FetchMulti(context.Background(), 3); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	wg.Wait()
 }
 
 func TestHTTPFailover(t *testing.T) {

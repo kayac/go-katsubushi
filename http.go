@@ -150,6 +150,7 @@ func NewHTTPClient(urls []string, pathPrefix string) (*HTTPClient, error) {
 		client: &http.Client{
 			Timeout: DefaultClientTimeout,
 		},
+		pathPrefix: pathPrefix,
 		pool: &sync.Pool{
 			New: func() any {
 				return new(bytes.Buffer)
@@ -178,8 +179,10 @@ func (c *HTTPClient) SetTimeout(t time.Duration) {
 func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 	errs := fmt.Errorf("no servers available")
 	for _, u := range c.urls {
-		id, err := func(u *url.URL) (uint64, error) {
+		// copy the URL to avoid mutating the shared one
+		id, err := func(u url.URL) (uint64, error) {
 			u.Path = fmt.Sprintf("/%sid", c.pathPrefix)
+			u.RawQuery = ""
 			req, _ := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 			resp, err := c.client.Do(req)
 			if err != nil {
@@ -202,7 +205,7 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 			} else {
 				return id, nil
 			}
-		}(u)
+		}(*u)
 		if err != nil {
 			errs = fmt.Errorf("failed to fetch id from %s: %w", u, err)
 			continue
@@ -216,7 +219,8 @@ func (c *HTTPClient) Fetch(ctx context.Context) (uint64, error) {
 func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 	errs := fmt.Errorf("no servers available")
 	for _, u := range c.urls {
-		ids, err := func(u *url.URL) ([]uint64, error) {
+		// copy the URL to avoid mutating the shared one
+		ids, err := func(u url.URL) ([]uint64, error) {
 			u.Path = fmt.Sprintf("/%sids", c.pathPrefix)
 			u.RawQuery = fmt.Sprintf("n=%d", n)
 			req, _ := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
@@ -250,7 +254,7 @@ func (c *HTTPClient) FetchMulti(ctx context.Context, n int) ([]uint64, error) {
 				ids = append(ids, id)
 			}
 			return ids, nil
-		}(u)
+		}(*u)
 		if err != nil {
 			errs = fmt.Errorf("failed to fetch ids from %s: %w", u, err)
 			continue
