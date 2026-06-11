@@ -217,6 +217,16 @@ Note:
 
 `-worker-id` or `-redis` is required.
 
+All options can also be set via environment variables. For each option, the following environment variables are looked up in order, and the first one found is used. For example, for `-worker-id`:
+
+1. `KATSUBUSHI_WORKER_ID`
+2. `WORKER_ID`
+3. `worker_id`
+
+Commandline options take precedence over environment variables.
+
+The `KATSUBUSHI_` prefixed form is recommended because non-prefixed names may conflict with unrelated environment variables (e.g. `PORT` or `VERSION` are commonly set by platforms).
+
 ### -worker-id
 
 ID of the worker, must be unique in your service.

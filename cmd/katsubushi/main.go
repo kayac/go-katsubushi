@@ -286,9 +286,11 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, mi
 }
 
 func envToFlag(f *flag.Flag) {
+	name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 	names := []string{
-		strings.ToUpper(strings.Replace(f.Name, "-", "_", -1)),
-		strings.ToLower(strings.Replace(f.Name, "-", "_", -1)),
+		"KATSUBUSHI_" + name,
+		name,
+		strings.ToLower(name),
 	}
 	for _, name := range names {
 		if s := os.Getenv(name); s != "" {
