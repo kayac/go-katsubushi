@@ -68,6 +68,7 @@ func (sv *gRPCGenerator) FetchMulti(ctx context.Context, req *grpc.FetchMultiReq
 }
 
 func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
+	app.registerServers(cfg)
 	svGen := &gRPCGenerator{app: app}
 	svStats := &gRPCStats{app: app}
 
@@ -119,7 +120,7 @@ func (app *App) RunGRPCServer(ctx context.Context, cfg *Config) error {
 	}()
 
 	slog.Info("Listening gRPC server", "addr", listener.Addr().String())
-	app.setReady()
+	app.setReady(serverGRPC)
 	err := s.Serve(listener)
 	select {
 	case <-ctx.Done():

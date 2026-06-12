@@ -172,10 +172,16 @@ var (
 type App struct {
 	Listener net.Listener
 
-	gen       Generator
-	idFormat  string
-	readyCh   chan any
-	readyOnce sync.Once
+	gen      Generator
+	idFormat string
+
+	// readiness of the servers. Ready() becomes readable when all the
+	// servers in requiredServers are marked ready in readyServers.
+	readyCh         chan any
+	readyMu         sync.Mutex
+	readyClosed     bool
+	requiredServers map[string]bool
+	readyServers    map[string]bool
 
 	// App will disconnect connection if there are no commands until idleTimeout.
 	idleTimeout time.Duration
@@ -297,6 +303,7 @@ func SlogLogger() *slog.Logger {
 }
 
 func (app *App) RunServer(ctx context.Context, kc *Config) error {
+	app.registerServers(kc)
 	var l net.Listener
 	var err error
 	if kc.Sockpath != "" {
@@ -342,7 +349,7 @@ func (app *App) Serve(ctx context.Context, l net.Listener) error {
 	)
 
 	app.Listener = l
-	app.setReady()
+	app.setReady(serverMemcached)
 
 	go func() {
 		<-ctx.Done()
@@ -369,15 +376,54 @@ func (app *App) Serve(ctx context.Context, l net.Listener) error {
 	}
 }
 
-// Ready returns a channel which become readable when the app can accept connections.
+// Ready returns a channel which becomes readable when all the configured
+// servers can accept connections.
+// The servers to wait for are determined by the Config passed to RunServer,
+// RunHTTPServer or RunGRPCServer, whichever is called first.
+// When a server is started without a Config (e.g. Serve), only that server
+// is waited for.
 func (app *App) Ready() chan any {
 	return app.readyCh
 }
 
-func (app *App) setReady() {
-	app.readyOnce.Do(func() {
-		close(app.readyCh)
-	})
+// registerServers records the servers enabled in cfg as required for Ready().
+// Only the first call takes effect.
+func (app *App) registerServers(cfg *Config) {
+	app.readyMu.Lock()
+	defer app.readyMu.Unlock()
+	if app.requiredServers != nil {
+		return
+	}
+	app.requiredServers = make(map[string]bool)
+	for _, name := range cfg.enabledServers() {
+		app.requiredServers[name] = true
+	}
+}
+
+// setReady marks the named server as ready, and closes the channel returned
+// by Ready() when all the required servers are ready.
+func (app *App) setReady(name string) {
+	app.readyMu.Lock()
+	defer app.readyMu.Unlock()
+	if app.requiredServers == nil {
+		// The server was started without a Config, so it is the only
+		// required server.
+		app.requiredServers = map[string]bool{name: true}
+	}
+	if app.readyServers == nil {
+		app.readyServers = make(map[string]bool)
+	}
+	app.readyServers[name] = true
+	if app.readyClosed {
+		return
+	}
+	for n := range app.requiredServers {
+		if !app.readyServers[n] {
+			return
+		}
+	}
+	app.readyClosed = true
+	close(app.readyCh)
 }
 
 func (app *App) handleConn(ctx context.Context, conn net.Conn) {
