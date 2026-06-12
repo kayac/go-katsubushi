@@ -226,6 +226,12 @@ Commandline options take precedence over environment variables.
 
 The `KATSUBUSHI_` prefixed form is recommended because non-prefixed names may conflict with unrelated environment variables (e.g. `PORT` or `VERSION` are commonly set by platforms).
 
+When a `KATSUBUSHI_` prefixed variable has a value that cannot be parsed for the option, katsubushi exits with an error. An unparseable value in a non-prefixed variable is likely a conflict with an unrelated variable, so it is ignored with a warning.
+
+`-version` cannot be set via environment variables.
+
+The port options (`-port`, `-http-port`, `-grpc-port` and `-debug-port`) accept a URL like `tcp://10.0.0.1:11212` besides a plain port number, and use the port number in the URL. This allows katsubushi to start even when Kubernetes or Docker service links inject such values into `*_PORT` environment variables (e.g. a Kubernetes service named `katsubushi` injects `KATSUBUSHI_PORT=tcp://...` into the pods in the same namespace). A URL without a port number is an error.
+
 ### -worker-id
 
 ID of the worker, must be unique in your service.
@@ -318,6 +324,11 @@ Boolean flag.
 Generate IDs that fit within 2^53 - 1 (`Number.MAX_SAFE_INTEGER` in JavaScript).
 See [JS-safe ID format](#js-safe-id-format) for details.
 
+### -version
+
+Optional.
+Boolean flag.
+Show the version number and exit.
 
 ## Licence
 

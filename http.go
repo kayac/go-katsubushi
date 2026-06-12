@@ -22,6 +22,7 @@ const (
 )
 
 func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
+	app.registerServers(cfg)
 	mux := http.NewServeMux()
 	mux.HandleFunc(fmt.Sprintf("/%sid", cfg.HTTPPathPrefix), app.HTTPGetSingleID)
 	mux.HandleFunc(fmt.Sprintf("/%sids", cfg.HTTPPathPrefix), app.HTTPGetMultiID)
@@ -53,7 +54,7 @@ func (app *App) RunHTTPServer(ctx context.Context, cfg *Config) error {
 	}
 	listener = app.wrapListener(listener)
 	slog.Info("Listening HTTP server", "addr", listener.Addr().String())
-	app.setReady()
+	app.setReady(serverHTTP)
 	err := s.Serve(listener)
 	select {
 	case <-ctx.Done():

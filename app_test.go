@@ -107,6 +107,40 @@ func newTestAppAndListenSock(ctx context.Context, t testing.TB) (*App, string) {
 	return app, tmpDir
 }
 
+func TestReadyWaitsForAllServers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix domain socket is not supported on Windows")
+	}
+	ctx := t.Context()
+
+	app := newTestApp(t)
+	httpListener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &Config{
+		Sockpath:     filepath.Join(t.TempDir(), "katsubushi.sock"),
+		HTTPListener: httpListener,
+	}
+
+	go app.RunHTTPServer(ctx, cfg)
+	select {
+	case <-app.Ready():
+		t.Fatal("Ready must not be readable until the memcached server is ready")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	go app.RunServer(ctx, cfg)
+	select {
+	case <-app.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("Ready must be readable after all servers are ready")
+	}
+	if app.Listener == nil {
+		t.Fatal("app.Listener must be set when Ready is readable")
+	}
+}
+
 func TestApp(t *testing.T) {
 	ctx := context.Background()
 	app := newTestAppAndListenTCP(ctx, t, nil)
