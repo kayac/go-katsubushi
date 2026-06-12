@@ -1,5 +1,19 @@
 # Changelog
 
+## [v2.3.0](https://github.com/kayac/go-katsubushi/compare/v2.2.1...v2.3.0) - 2026-06-12
+
+- Bump google.golang.org/grpc from 1.73.0 to 1.79.3 by @dependabot[bot] in https://github.com/kayac/go-katsubushi/pull/80
+- Support Go 1.25/1.26 in CI and release, update actions by @fujiwara in https://github.com/kayac/go-katsubushi/pull/82
+- Modernize syntax with gopls modernize analyzer by @fujiwara in https://github.com/kayac/go-katsubushi/pull/83
+- Replace archived bmizerany/mc and update dependencies by @fujiwara in https://github.com/kayac/go-katsubushi/pull/84
+- Fix HTTP client failover across multiple servers by @fujiwara in https://github.com/kayac/go-katsubushi/pull/85
+- Run CI once per PR instead of on both push and pull_request by @fujiwara in https://github.com/kayac/go-katsubushi/pull/86
+- Add JS-safe ID format by @fujiwara in https://github.com/kayac/go-katsubushi/pull/87
+- Improve startup configuration and logging by @fujiwara in https://github.com/kayac/go-katsubushi/pull/88
+- Fix HTTP client, binary protocol, and graceful shutdown issues by @fujiwara in https://github.com/kayac/go-katsubushi/pull/89
+- Modernize code and clean up by @fujiwara in https://github.com/kayac/go-katsubushi/pull/90
+- Tolerate platform env vars and make Ready() wait for all servers by @fujiwara in https://github.com/kayac/go-katsubushi/pull/91
+
 ## [v2.2.1](https://github.com/kayac/go-katsubushi/compare/v2.2.0...v2.2.1) - 2025-08-02
 - Improve logging performance and consistency by @fujiwara in https://github.com/kayac/go-katsubushi/pull/78
 
