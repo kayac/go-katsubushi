@@ -9,8 +9,10 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -48,17 +50,17 @@ func main() {
 	kc := &katsubushi.Config{}
 
 	flag.UintVar(&workerID, "worker-id", 0, "worker id. must be unique.")
-	flag.IntVar(&kc.Port, "port", 11212, "port to listen. 0 means disable.")
+	flag.Var(newPortValue(&kc.Port, 11212), "port", "port to listen. 0 means disable.")
 	flag.StringVar(&kc.Sockpath, "sock", "", "unix domain socket to listen. ignore port option when set this.")
 	flag.DurationVar(&kc.IdleTimeout, "idle-timeout", katsubushi.DefaultIdleTimeout, "connection will be closed if there are no packets over the seconds. 0 means infinite.")
 	flag.StringVar(&kc.LogLevel, "log-level", "info", "log level (panic, fatal, error, warn, info = Default, debug)")
 	flag.StringVar(&kc.LogFormat, "log-format", "text", "log format (text = Default, json)")
-	flag.IntVar(&kc.HTTPPort, "http-port", 0, "port to listen http server. 0 means disable.")
-	flag.IntVar(&kc.GRPCPort, "grpc-port", 0, "port to listen grpc server. 0 means disable.")
+	flag.Var(newPortValue(&kc.HTTPPort, 0), "http-port", "port to listen http server. 0 means disable.")
+	flag.Var(newPortValue(&kc.GRPCPort, 0), "grpc-port", "port to listen grpc server. 0 means disable.")
 
 	flag.BoolVar(&pc.enablePprof, "enable-pprof", false, "")
 	flag.BoolVar(&pc.enableStats, "enable-stats", false, "")
-	flag.IntVar(&pc.debugPort, "debug-port", 8080, "port to listen for debug")
+	flag.Var(newPortValue(&pc.debugPort, 8080), "debug-port", "port to listen for debug")
 
 	flag.BoolVar(&showVersion, "version", false, "show version number")
 	flag.StringVar(&redisURL, "redis", "", "URL of Redis for automated worker id allocation")
@@ -289,6 +291,46 @@ func assignWorkerID(ctx context.Context, wg *sync.WaitGroup, redisURL string, mi
 	return id, nil
 }
 
+// portValue is a flag.Value for port number flags. Besides a plain number,
+// it accepts a URL like tcp://10.0.0.1:11212 and uses its port number,
+// because Kubernetes and Docker service links inject such values into
+// *_PORT environment variables.
+type portValue struct {
+	p *int
+}
+
+func newPortValue(p *int, value int) portValue {
+	*p = value
+	return portValue{p: p}
+}
+
+func (v portValue) String() string {
+	if v.p == nil {
+		return "0"
+	}
+	return strconv.Itoa(*v.p)
+}
+
+func (v portValue) Set(s string) error {
+	if strings.Contains(s, "://") {
+		u, err := url.Parse(s)
+		if err != nil {
+			return err
+		}
+		p := u.Port()
+		if p == "" {
+			return fmt.Errorf("no port number in URL %q", s)
+		}
+		s = p
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return err
+	}
+	*v.p = n
+	return nil
+}
+
 func envToFlag(f *flag.Flag) {
 	if err := applyEnvToFlag(f); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -297,16 +339,29 @@ func envToFlag(f *flag.Flag) {
 }
 
 func applyEnvToFlag(f *flag.Flag) error {
-	name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
-	names := []string{
-		"KATSUBUSHI_" + name,
-		name,
-		strings.ToLower(name),
+	// -version makes the process print the version and exit instead of
+	// serving, so it must not be triggered via environment variables.
+	if f.Name == "version" {
+		return nil
 	}
-	for _, name := range names {
+	name := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+	if s := os.Getenv("KATSUBUSHI_" + name); s != "" {
+		if err := f.Value.Set(s); err != nil {
+			return fmt.Errorf("invalid value %q in environment variable %s for flag -%s: %w", s, "KATSUBUSHI_"+name, f.Name, err)
+		}
+		return nil
+	}
+	// The non-prefixed names are kept for backward compatibility but may
+	// collide with unrelated variables set by the platform (e.g. PORT or
+	// VERSION). An unparseable value is likely such a collision, so warn
+	// and ignore it instead of refusing to start.
+	for _, name := range []string{name, strings.ToLower(name)} {
 		if s := os.Getenv(name); s != "" {
+			prev := f.Value.String()
 			if err := f.Value.Set(s); err != nil {
-				return fmt.Errorf("invalid value %q in environment variable %s for flag -%s: %w", s, name, f.Name, err)
+				// a failed Set may clobber the value, so restore it
+				f.Value.Set(prev)
+				fmt.Fprintf(os.Stderr, "warning: ignoring environment variable %s=%q for flag -%s: %v\n", name, s, f.Name, err)
 			}
 			break
 		}
