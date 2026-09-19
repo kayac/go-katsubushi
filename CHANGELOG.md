@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2.3.1](https://github.com/kayac/go-katsubushi/compare/v2.3.0...v2.3.1) - 2026-09-19
+
+- Rename CLAUDE.md to AGENTS.md by @fujiwara in https://github.com/kayac/go-katsubushi/pull/92
+- Bump google.golang.org/grpc from 1.81.1 to 1.83.2 by @dependabot[bot] in https://github.com/kayac/go-katsubushi/pull/94
+
 ## [v2.3.0](https://github.com/kayac/go-katsubushi/compare/v2.2.1...v2.3.0) - 2026-06-12
 
 - Bump google.golang.org/grpc from 1.73.0 to 1.79.3 by @dependabot[bot] in https://github.com/kayac/go-katsubushi/pull/80
